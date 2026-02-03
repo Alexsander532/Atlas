@@ -14,8 +14,10 @@ class MessageModel {
   final String userId;
   final String userName;
   final String text;
+  final String? userPhotoUrl;
   final DateTime createdAt;
   final DateTime? editedAt;
+  final bool isDeleted;
 
   MessageModel({
     required this.id,
@@ -23,7 +25,9 @@ class MessageModel {
     required this.userName,
     required this.text,
     required this.createdAt,
+    this.userPhotoUrl,
     this.editedAt,
+    this.isDeleted = false,
   });
 
   /// Cria a partir de um documento Firestore.
@@ -35,7 +39,9 @@ class MessageModel {
       userName: data['userName'] ?? 'Anônimo',
       text: data['text'] ?? '',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      userPhotoUrl: data['userPhotoUrl'],
       editedAt: (data['editedAt'] as Timestamp?)?.toDate(),
+      isDeleted: data['isDeleted'] ?? false,
     );
   }
 
@@ -46,7 +52,9 @@ class MessageModel {
       'userName': userName,
       'text': text,
       'createdAt': Timestamp.fromDate(createdAt),
+      'userPhotoUrl': userPhotoUrl,
       'editedAt': editedAt != null ? Timestamp.fromDate(editedAt!) : null,
+      'isDeleted': isDeleted,
     };
   }
 
@@ -57,7 +65,9 @@ class MessageModel {
     String? userName,
     String? text,
     DateTime? createdAt,
+    String? userPhotoUrl,
     DateTime? editedAt,
+    bool? isDeleted,
   }) {
     return MessageModel(
       id: id ?? this.id,
@@ -65,7 +75,9 @@ class MessageModel {
       userName: userName ?? this.userName,
       text: text ?? this.text,
       createdAt: createdAt ?? this.createdAt,
+      userPhotoUrl: userPhotoUrl ?? this.userPhotoUrl,
       editedAt: editedAt ?? this.editedAt,
+      isDeleted: isDeleted ?? this.isDeleted,
     );
   }
 }

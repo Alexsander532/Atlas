@@ -42,23 +42,18 @@ class UserModel extends Equatable {
   /// Útil para estatísticas e ordenação.
   final DateTime? createdAt;
 
+  /// URL da foto de perfil.
+  final String? photoUrl;
+
   const UserModel({
     required this.id,
     required this.email,
     required this.name,
     this.createdAt,
+    this.photoUrl,
   });
 
   /// Cria um UserModel a partir de um Map (JSON/Firestore).
-  ///
-  /// Usado para deserializar dados do Firestore ou API.
-  /// Suporta tanto Timestamp do Firestore quanto String ISO8601.
-  ///
-  /// Exemplo de uso com Firestore:
-  /// ```dart
-  /// final doc = await firestore.collection('users').doc(uid).get();
-  /// final user = UserModel.fromMap(doc.data()!, doc.id);
-  /// ```
   factory UserModel.fromMap(Map<String, dynamic> map, String id) {
     DateTime? createdAt;
 
@@ -74,39 +69,34 @@ class UserModel extends Equatable {
       id: id,
       email: map['email'] as String? ?? '',
       name: map['name'] as String? ?? '',
+      photoUrl: map['photoUrl'] as String?,
       createdAt: createdAt,
     );
   }
 
   /// Converte o UserModel para Map (JSON).
-  ///
-  /// Usado para serializar dados para Firestore ou API.
-  ///
-  /// Exemplo de uso com Firestore:
-  /// ```dart
-  /// await firestore.collection('users').doc(user.id).set(user.toMap());
-  /// ```
   Map<String, dynamic> toMap() {
     return {
       'email': email,
       'name': name,
+      'photoUrl': photoUrl,
       'createdAt': createdAt?.toIso8601String(),
     };
   }
 
   /// Cria uma cópia do UserModel com campos alterados.
-  ///
-  /// Útil para atualizar dados imutavelmente.
   UserModel copyWith({
     String? id,
     String? email,
     String? name,
+    String? photoUrl,
     DateTime? createdAt,
   }) {
     return UserModel(
       id: id ?? this.id,
       email: email ?? this.email,
       name: name ?? this.name,
+      photoUrl: photoUrl ?? this.photoUrl,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -115,7 +105,7 @@ class UserModel extends Equatable {
   ///
   /// Equatable usa esta lista para determinar se dois objetos são iguais.
   @override
-  List<Object?> get props => [id, email, name, createdAt];
+  List<Object?> get props => [id, email, name, photoUrl, createdAt];
 
   @override
   String toString() {

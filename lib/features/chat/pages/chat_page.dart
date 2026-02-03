@@ -49,6 +49,7 @@ class _ChatPageState extends State<ChatPage> {
     _chatService.sendMessage(
       userId: authState.user.id,
       userName: authState.user.name,
+      userPhotoUrl: authState.user.photoUrl,
       text: text,
     );
 
@@ -74,6 +75,7 @@ class _ChatPageState extends State<ChatPage> {
     final authState = context.read<AuthCubit>().state;
     if (authState is! AuthAuthenticated) return;
     if (message.userId != authState.user.id) return;
+    if (message.isDeleted) return;
 
     showModalBottomSheet(
       context: context,
@@ -249,7 +251,20 @@ class _ChatPageState extends State<ChatPage> {
                 padding: const EdgeInsets.all(16),
                 itemCount: messages.length,
                 itemBuilder: (context, index) {
-                  return _buildMessageBubble(messages[index]);
+                  final message = messages[index];
+                  final showDateDivider =
+                      index == 0 ||
+                      !_isSameDay(
+                        messages[index - 1].createdAt,
+                        message.createdAt,
+                      );
+
+                  return Column(
+                    children: [
+                      if (showDateDivider) _buildDateDivider(message.createdAt),
+                      _buildMessageBubble(message),
+                    ],
+                  );
                 },
               );
             },
@@ -346,11 +361,18 @@ class _ChatPageState extends State<ChatPage> {
 
               // Texto da mensagem
               Text(
-                message.text,
+                message.isDeleted ? '🚫 Mensagem apagada' : message.text,
                 style: TextStyle(
-                  color: isMyMessage
-                      ? colorScheme.onPrimary
-                      : colorScheme.onSurface,
+                  color: message.isDeleted
+                      ? (isMyMessage
+                            ? colorScheme.onPrimary.withOpacity(0.6)
+                            : colorScheme.onSurface.withOpacity(0.5))
+                      : (isMyMessage
+                            ? colorScheme.onPrimary
+                            : colorScheme.onSurface),
+                  fontStyle: message.isDeleted
+                      ? FontStyle.italic
+                      : FontStyle.normal,
                 ),
               ),
 
@@ -368,7 +390,7 @@ class _ChatPageState extends State<ChatPage> {
                           : colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  if (message.editedAt != null) ...[
+                  if (message.editedAt != null && !message.isDeleted) ...[
                     const SizedBox(width: 4),
                     Text(
                       '(editado)',
@@ -386,6 +408,51 @@ class _ChatPageState extends State<ChatPage> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  /// Verifica se duas datas são do mesmo dia.
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  /// Formata a data para exibição (Hoje, Ontem, ou data completa).
+  String _formatDateLabel(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final messageDate = DateTime(date.year, date.month, date.day);
+
+    if (messageDate == today) {
+      return 'Hoje';
+    } else if (messageDate == yesterday) {
+      return 'Ontem';
+    } else {
+      return DateFormat('dd/MM/yyyy').format(date);
+    }
+  }
+
+  /// Constrói o divisor de data.
+  Widget _buildDateDivider(DateTime date) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 16),
+      child: Row(
+        children: [
+          Expanded(child: Divider(color: Colors.grey[400])),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(
+              _formatDateLabel(date),
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Expanded(child: Divider(color: Colors.grey[400])),
+        ],
       ),
     );
   }

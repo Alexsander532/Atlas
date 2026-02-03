@@ -40,6 +40,7 @@ class ChatService {
     required String userId,
     required String userName,
     required String text,
+    String? userPhotoUrl,
   }) async {
     if (text.trim().isEmpty) return;
 
@@ -48,7 +49,9 @@ class ChatService {
       'userName': userName,
       'text': text.trim(),
       'createdAt': FieldValue.serverTimestamp(),
+      'userPhotoUrl': userPhotoUrl,
       'editedAt': null,
+      'isDeleted': false,
     });
   }
 
@@ -65,8 +68,11 @@ class ChatService {
     });
   }
 
-  /// Exclui uma mensagem.
+  /// Exclui uma mensagem (soft delete).
   Future<void> deleteMessage(String messageId) async {
-    await _messagesCollection.doc(messageId).delete();
+    await _messagesCollection.doc(messageId).update({
+      'isDeleted': true,
+      'text': '', // Limpa o texto para privacidade/segurança
+    });
   }
 }
