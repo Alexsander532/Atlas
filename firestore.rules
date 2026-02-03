@@ -1,0 +1,49 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // =========================================================================
+    // FUNÇÕES AUXILIARES
+    // =========================================================================
+    
+    // Verifica se o usuário está logado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Verifica se o ID do usuário logado é igual ao ID fornecido (dono do dado)
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // =========================================================================
+    // REGRAS DAS COLEÇÕES
+    // =========================================================================
+
+    // Regras para Usuários (users)
+    // Usado no Perfil e Ranking
+    match /users/{userId} {
+      // PERMITIR LEITURA: Qualquer usuário logado pode ler (para ver o Ranking)
+      allow read: if isAuthenticated();
+      
+      // PERMITIR ESCRITA: Apenas o próprio dono da conta pode editar seus dados
+      allow write: if isOwner(userId);
+    }
+
+    // Regras para Check-ins (checkins)
+    // Usado no Feed e Perfil
+    match /checkins/{checkinId} {
+      // PERMITIR LEITURA: Qualquer usuário logado pode ler (para ver o Feed)
+      allow read: if isAuthenticated();
+      
+      // PERMITIR CRIAÇÃO:
+      // 1. Usuário deve estar logado
+      // 2. O campo 'userId' do novo documento deve ser igual ao ID do usuário logado (não pode postar em nome de outro)
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      
+      // PERMITIR ATUALIZAÇÃO E DELEÇÃO:
+      // Apenas o dono do check-in (userId salvo no documento) pode editar ou apagar
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+  }
+}

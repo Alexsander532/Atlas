@@ -21,7 +21,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../core/widgets/primary_button.dart';
 import '../cubit/auth_cubit.dart';
 import '../cubit/auth_state.dart';
 
@@ -45,8 +44,7 @@ class _LoginPageState extends State<LoginPage>
   // Key do formulário para validação
   final _formKey = GlobalKey<FormState>();
 
-  // Checkbox para primeiro acesso (onboarding)
-  bool _isFirstAccess = false;
+  // Checkbox removido conforme solicitação
 
   // ====== ANIMAÇÕES DE ENTRADA ======
   late AnimationController _animController;
@@ -135,11 +133,7 @@ class _LoginPageState extends State<LoginPage>
       body: BlocListener<AuthCubit, AuthState>(
         listener: (context, state) {
           if (state is AuthAuthenticated) {
-            if (_isFirstAccess) {
-              Navigator.pushReplacementNamed(context, '/onboarding');
-            } else {
-              Navigator.pushReplacementNamed(context, '/dashboard');
-            }
+            Navigator.pushReplacementNamed(context, '/dashboard');
           } else if (state is AuthError) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -238,36 +232,9 @@ class _LoginPageState extends State<LoginPage>
 
                                   const SizedBox(height: 16),
 
-                                  // ====== CHECKBOX PRIMEIRO ACESSO ======
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Checkbox(
-                                        value: _isFirstAccess,
-                                        onChanged: (value) {
-                                          setState(() {
-                                            _isFirstAccess = value ?? false;
-                                          });
-                                        },
-                                        activeColor: const Color(0xFF0D1B42),
-                                      ),
-                                      GestureDetector(
-                                        onTap: () {
-                                          setState(() {
-                                            _isFirstAccess = !_isFirstAccess;
-                                          });
-                                        },
-                                        child: const Text(
-                                          'Primeiro acesso?',
-                                          style: TextStyle(
-                                            color: Colors.black87,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 16),
+                                  // Checkbox removido.
+
+                                  // ====== BOTÃO ENTRAR ======
 
                                   // ====== BOTÃO ENTRAR ======
                                   SizedBox(

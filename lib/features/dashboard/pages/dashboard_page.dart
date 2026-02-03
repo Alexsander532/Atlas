@@ -394,6 +394,17 @@ class _DashboardPageState extends State<DashboardPage> {
       return const Center(child: CircularProgressIndicator());
     }
 
+    // Lógica de saudação
+    final hour = DateTime.now().hour;
+    String greeting;
+    if (hour < 12) {
+      greeting = 'Bom dia';
+    } else if (hour < 18) {
+      greeting = 'Boa tarde';
+    } else {
+      greeting = 'Boa noite';
+    }
+
     return RefreshIndicator(
       onRefresh: _loadData,
       child: SingleChildScrollView(
@@ -404,7 +415,7 @@ class _DashboardPageState extends State<DashboardPage> {
           children: [
             // ====== SAUDAÇÃO ======
             Text(
-              'Olá, $userName! 👋',
+              '$greeting, $userName! 👋',
               style: theme.textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),

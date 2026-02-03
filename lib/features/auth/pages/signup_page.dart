@@ -71,10 +71,10 @@ class _SignUpPageState extends State<SignUpPage> {
       body: BlocListener<AuthCubit, AuthState>(
         listener: (context, state) {
           if (state is AuthAuthenticated) {
-            // Sucesso: vai para Dashboard (removendo histórico de auth)
+            // Sucesso: vai para Onboarding (novo fluxo)
             Navigator.pushNamedAndRemoveUntil(
               context,
-              '/dashboard',
+              '/onboarding',
               (route) => false,
             );
           } else if (state is AuthError) {
