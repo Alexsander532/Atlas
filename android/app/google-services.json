@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "601363258021",
+    "project_id": "bookclubrestauracao",
+    "storage_bucket": "bookclubrestauracao.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:601363258021:android:72f63d69fdc21cd27ccb4c",
+        "android_client_info": {
+          "package_name": "com.example.book_club_restauracao"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBvr0l05ADokTztaKpz3ruZ8eUtXn1p4mo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

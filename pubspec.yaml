@@ -1,0 +1,53 @@
+name: book_club_restauracao
+description: "Atlas - App de trackeamento de leitura por constância"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.7
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Cupertino Icons
+  cupertino_icons: ^1.0.8
+
+  # Gerenciamento de estado com BLoC
+  flutter_bloc: ^8.1.6
+  bloc: ^8.1.4
+
+  # Facilita comparação de estados imutáveis
+  equatable: ^2.0.5
+  firebase_core: ^4.4.0
+  firebase_auth: ^6.1.4
+  cloud_firestore: ^6.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.13.1
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/images/logo_icon.png"
+  # Configuração para ícones adaptativos (Android 8+)
+  adaptive_icon_background: "#1E1E2C"
+  adaptive_icon_foreground: "assets/images/logo_icon.png"
+  min_sdk_android: 21
+  web:
+    generate: true
+    image_path: "assets/images/logo_icon.png"
+    background_color: "#1E1E2C"
+    theme_color: "#1E1E2C"
+
+flutter:
+  uses-material-design: true
+
+  # Assets do aplicativo
+  assets:
+    - assets/images/
