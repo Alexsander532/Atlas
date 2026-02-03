@@ -397,9 +397,9 @@ class _DashboardPageState extends State<DashboardPage> {
     // Lógica de saudação
     final hour = DateTime.now().hour;
     String greeting;
-    if (hour < 12) {
+    if (hour >= 5 && hour < 12) {
       greeting = 'Bom dia';
-    } else if (hour < 18) {
+    } else if (hour >= 12 && hour < 18) {
       greeting = 'Boa tarde';
     } else {
       greeting = 'Boa noite';
