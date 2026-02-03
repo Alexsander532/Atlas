@@ -254,19 +254,30 @@ class _DashboardPageState extends State<DashboardPage> {
                         : 'Expandir menu',
                   ),
                   const SizedBox(height: 16),
-                  if (_isRailExpanded)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        'Atlas',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.primary,
+                  // Título Animado "Atlas"
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeInOut,
+                    height: 30,
+                    width: _isRailExpanded ? 100 : 0,
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 200),
+                      opacity: _isRailExpanded ? 1.0 : 0.0,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          'Atlas',
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.primary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.clip,
+                          softWrap: false,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.clip,
                       ),
                     ),
+                  ),
                   const SizedBox(height: 16),
                 ],
               ),
@@ -797,28 +808,41 @@ class _RailMenuButton extends StatelessWidget {
     return InkWell(
       onTap: onPressed,
       borderRadius: BorderRadius.circular(12),
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
         height: 56, // Altura similar aos itens do rail
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        width: expanded ? 200 : 72, // Largura fixa baseada no estado
+        width: expanded ? 200 : 72, // Largura animada
         alignment: Alignment.centerLeft, // Alinhamento consistente
         child: Row(
           mainAxisSize: MainAxisSize.min, // Ocupa o necessário
           children: [
-            // Hack para centralizar quando fechado:
-            // Padding calculado ou SizedBox para alinhar o ícone com os destinos
+            // Ícone sempre visível
             SizedBox(width: 40, child: Icon(icon, color: color, size: 24)),
-            if (expanded) ...[
-              const SizedBox(width: 4), // Espaço entre ícone e texto
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(color: color, fontWeight: FontWeight.w600),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis, // Evita quebra de linha feia
-                ),
+
+            // Texto animado com Clip e Opacidade
+            Flexible(
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 200),
+                opacity: expanded ? 1.0 : 0.0,
+                curve: Curves.easeInOut,
+                child: expanded
+                    ? Padding(
+                        padding: const EdgeInsets.only(left: 4),
+                        child: Text(
+                          label,
+                          style: TextStyle(
+                            color: color,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      )
+                    : const SizedBox(),
               ),
-            ],
+            ),
           ],
         ),
       ),
