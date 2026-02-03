@@ -44,7 +44,8 @@ class _LoginPageState extends State<LoginPage>
   // Key do formulário para validação
   final _formKey = GlobalKey<FormState>();
 
-  // Checkbox removido conforme solicitação
+  // Checkbox de Login Automático
+  bool _rememberMe = false;
 
   // ====== ANIMAÇÕES DE ENTRADA ======
   late AnimationController _animController;
@@ -111,6 +112,7 @@ class _LoginPageState extends State<LoginPage>
       context.read<AuthCubit>().signIn(
         _emailController.text,
         _passwordController.text,
+        rememberMe: _rememberMe,
       );
     }
   }
@@ -232,7 +234,30 @@ class _LoginPageState extends State<LoginPage>
 
                                   const SizedBox(height: 16),
 
-                                  // Checkbox removido.
+                                  // ====== LOGIN AUTOMÁTICO ======
+                                  // Adicionado Checkbox para persistência
+                                  CheckboxListTile(
+                                    value: _rememberMe,
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _rememberMe = value ?? true;
+                                      });
+                                    },
+                                    title: const Text(
+                                      'Login automático',
+                                      style: TextStyle(
+                                        color: Colors.black87,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    controlAffinity:
+                                        ListTileControlAffinity.leading,
+                                    contentPadding: EdgeInsets.zero,
+                                    activeColor: const Color(0xFF0D1B42),
+                                    dense: true,
+                                  ),
+
+                                  const SizedBox(height: 16),
 
                                   // ====== BOTÃO ENTRAR ======
 

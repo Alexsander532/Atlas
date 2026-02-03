@@ -52,7 +52,9 @@ class App extends StatelessWidget {
     return MultiBlocProvider(
       providers: [
         // Provider global de autenticação
-        BlocProvider<AuthCubit>(create: (context) => AuthCubit(authRepository)),
+        BlocProvider<AuthCubit>(
+          create: (context) => AuthCubit(authRepository)..checkAuthStatus(),
+        ),
       ],
       child: MaterialApp(
         // Configurações básicas

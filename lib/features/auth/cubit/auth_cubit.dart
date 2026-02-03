@@ -53,6 +53,22 @@ class AuthCubit extends Cubit<AuthState> {
   // MÉTODOS PÚBLICOS
   // ============================================================
 
+  /// Verifica o status atual de autenticação.
+  ///
+  /// Chamado na inicialização do app para restaurar sessão.
+  Future<void> checkAuthStatus() async {
+    try {
+      final user = await _authRepository.reloadUser();
+      if (user != null) {
+        emit(AuthAuthenticated(user));
+      } else {
+        emit(const AuthUnauthenticated());
+      }
+    } catch (_) {
+      emit(const AuthUnauthenticated());
+    }
+  }
+
   /// Realiza login com email e senha.
   ///
   /// Fluxo:
@@ -67,10 +83,15 @@ class AuthCubit extends Cubit<AuthState> {
   ///   context.read<AuthCubit>().signIn(
   ///     _emailController.text,
   ///     _passwordController.text,
+  ///     rememberMe: _rememberMe,
   ///   );
   /// }
   /// ```
-  Future<void> signIn(String email, String password) async {
+  Future<void> signIn(
+    String email,
+    String password, {
+    bool rememberMe = true,
+  }) async {
     // Validação de inputs
     if (email.trim().isEmpty) {
       emit(const AuthError('Por favor, informe seu email'));
@@ -96,6 +117,7 @@ class AuthCubit extends Cubit<AuthState> {
       final user = await _authRepository.signIn(
         email: email,
         password: password,
+        rememberMe: rememberMe,
       );
 
       // Sucesso: emite estado autenticado

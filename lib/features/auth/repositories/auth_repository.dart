@@ -60,6 +60,7 @@ class AuthRepository {
   Future<UserModel> signIn({
     required String email,
     required String password,
+    bool rememberMe = true,
   }) async {
     // Remove espaços e converte para minúsculas
     final normalizedEmail = email.trim().toLowerCase();
@@ -67,7 +68,13 @@ class AuthRepository {
     return await _authService.signIn(
       email: normalizedEmail,
       password: password,
+      rememberMe: rememberMe,
     );
+  }
+
+  /// Recarrega dados do usuário atual.
+  Future<UserModel?> reloadUser() async {
+    return await _authService.reloadUser();
   }
 
   /// Realiza cadastro de novo usuário.

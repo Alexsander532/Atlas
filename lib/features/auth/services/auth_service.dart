@@ -20,6 +20,7 @@
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 import '../models/user_model.dart';
 
@@ -61,9 +62,15 @@ class AuthService {
   ///   print('Erro: ${e.message}');
   /// }
   /// ```
+  /// Realiza login com email e senha.
+  ///
+  /// Retorna [UserModel] em caso de sucesso.
+  /// Se [rememberMe] for true (padrão), mantém a sessão (Persistence.LOCAL).
+  /// Se false, a sessão expira ao fechar a janela (Persistence.SESSION).
   Future<UserModel> signIn({
     required String email,
     required String password,
+    bool rememberMe = true,
   }) async {
     // Validação básica
     if (email.isEmpty || password.isEmpty) {
@@ -74,6 +81,14 @@ class AuthService {
     }
 
     try {
+      // Configura persistência (Apenas Web)
+      // No Mobile, a persistência é LOCAL por padrão e não pode ser alterada via setPersistence
+      if (kIsWeb) {
+        await _firebaseAuth.setPersistence(
+          rememberMe ? Persistence.LOCAL : Persistence.SESSION,
+        );
+      }
+
       final credential = await _firebaseAuth.signInWithEmailAndPassword(
         email: email,
         password: password,
@@ -84,32 +99,58 @@ class AuthService {
         throw const AuthException('Erro ao obter usuário');
       }
 
-      // Tenta buscar dados adicionais do Firestore
-      final userDoc = await _firestore.collection('users').doc(user.uid).get();
-
-      String userName = user.displayName ?? '';
-      DateTime? createdAt;
-
-      if (userDoc.exists) {
-        final data = userDoc.data();
-        userName = data?['name'] ?? userName;
-        if (data?['createdAt'] != null) {
-          createdAt = (data!['createdAt'] as Timestamp).toDate();
-        }
-      }
-
-      return UserModel(
-        id: user.uid,
-        email: user.email ?? '',
-        name: userName,
-        createdAt: createdAt,
-      );
+      // Busca dados completos do Firestore
+      return await _fetchUserDetails(user);
     } on FirebaseAuthException catch (e) {
       throw AuthException(_getErrorMessage(e.code), code: e.code);
     } catch (e) {
       if (e is AuthException) rethrow;
       throw AuthException('Erro ao realizar login: $e');
     }
+  }
+
+  /// Recarrega os dados do usuário atual (usado no refresh da página).
+  Future<UserModel?> reloadUser() async {
+    final user = _firebaseAuth.currentUser;
+    if (user == null) return null;
+
+    try {
+      return await _fetchUserDetails(user);
+    } catch (_) {
+      // Se falhar ao buscar dados extras, retorna o básico
+      return UserModel(
+        id: user.uid,
+        email: user.email ?? '',
+        name: user.displayName ?? '',
+      );
+    }
+  }
+
+  /// Busca dados detalhados do usuário no Firestore.
+  Future<UserModel> _fetchUserDetails(User user) async {
+    final userDoc = await _firestore.collection('users').doc(user.uid).get();
+
+    String userName = user.displayName ?? '';
+    DateTime? createdAt;
+    String? photoUrl = user.photoURL;
+
+    if (userDoc.exists) {
+      final data = userDoc.data();
+      userName = data?['name'] ?? userName;
+      photoUrl = data?['photoUrl'] ?? photoUrl;
+
+      if (data?['createdAt'] != null) {
+        createdAt = (data!['createdAt'] as Timestamp).toDate();
+      }
+    }
+
+    return UserModel(
+      id: user.uid,
+      email: user.email ?? '',
+      name: userName,
+      createdAt: createdAt,
+      photoUrl: photoUrl,
+    );
   }
 
   /// Realiza cadastro de novo usuário.

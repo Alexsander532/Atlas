@@ -15,8 +15,10 @@ import 'package:intl/intl.dart';
 
 import '../../auth/cubit/auth_cubit.dart';
 import '../../auth/cubit/auth_state.dart';
+import 'dart:async';
 import '../models/message_model.dart';
 import '../services/chat_service.dart';
+import '../widgets/typing_indicator.dart';
 
 /// Página principal do chat em grupo.
 class ChatPage extends StatefulWidget {
@@ -27,15 +29,51 @@ class ChatPage extends StatefulWidget {
 }
 
 class _ChatPageState extends State<ChatPage> {
+  Timer? _typingTimer;
+  bool _isTyping = false;
   final ChatService _chatService = ChatService();
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
   @override
+  void initState() {
+    super.initState();
+    _messageController.addListener(_onTypingChanged);
+  }
+
+  @override
   void dispose() {
+    _messageController.removeListener(_onTypingChanged);
     _messageController.dispose();
     _scrollController.dispose();
+    _typingTimer?.cancel();
     super.dispose();
+  }
+
+  void _onTypingChanged() {
+    final authState = context.read<AuthCubit>().state;
+    if (authState is! AuthAuthenticated) return;
+
+    if (_messageController.text.isNotEmpty && !_isTyping) {
+      _isTyping = true;
+      _chatService.setTypingStatus(
+        userId: authState.user.id,
+        userName: authState.user.name,
+        isTyping: true,
+      );
+    }
+
+    _typingTimer?.cancel();
+    _typingTimer = Timer(const Duration(seconds: 2), () {
+      if (_isTyping) {
+        _isTyping = false;
+        _chatService.setTypingStatus(
+          userId: authState.user.id,
+          userName: authState.user.name,
+          isTyping: false,
+        );
+      }
+    });
   }
 
   /// Envia uma mensagem.
@@ -51,6 +89,15 @@ class _ChatPageState extends State<ChatPage> {
       userName: authState.user.name,
       userPhotoUrl: authState.user.photoUrl,
       text: text,
+    );
+
+    // Limpa estado de digitando ao enviar
+    _isTyping = false;
+    _typingTimer?.cancel();
+    _chatService.setTypingStatus(
+      userId: authState.user.id,
+      userName: authState.user.name,
+      isTyping: false,
     );
 
     _messageController.clear();
@@ -175,6 +222,12 @@ class _ChatPageState extends State<ChatPage> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
+    // Pega o ID do usuário atual para usar nas mensagens e no indicador
+    final authState = context.read<AuthCubit>().state;
+    final currentUserId = authState is AuthAuthenticated
+        ? authState.user.id
+        : '';
+
     return Column(
       children: [
         // ====== CABEÇALHO ======
@@ -211,6 +264,12 @@ class _ChatPageState extends State<ChatPage> {
               }
 
               final messages = snapshot.data ?? [];
+
+              // Escuta auth state para pegar ID
+              final authState = context.read<AuthCubit>().state;
+              final currentUserId = authState is AuthAuthenticated
+                  ? authState.user.id
+                  : '';
 
               if (messages.isEmpty) {
                 return Center(
@@ -270,6 +329,44 @@ class _ChatPageState extends State<ChatPage> {
             },
           ),
         ),
+
+        // STREAM DE DIGITANDO
+        if (currentUserId.isNotEmpty)
+          StreamBuilder<List<String>>(
+            stream: _chatService.getTypingUsersStream(currentUserId),
+            builder: (context, typingSnapshot) {
+              if (!typingSnapshot.hasData || typingSnapshot.data!.isEmpty) {
+                return const SizedBox.shrink();
+              }
+
+              final typingUsers = typingSnapshot.data!;
+              final text = typingUsers.length == 1
+                  ? '${typingUsers.first} está digitando...'
+                  : '${typingUsers.join(", ")} estão digitando...';
+
+              return Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 8,
+                ),
+                alignment: Alignment.centerLeft,
+                child: Row(
+                  children: [
+                    const TypingIndicator(),
+                    const SizedBox(width: 8),
+                    Text(
+                      text,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
 
         // ====== CAMPO DE ENVIO ======
         Container(

@@ -9,6 +9,9 @@
 /// ============================================================================
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../auth/cubit/auth_cubit.dart';
+import '../../auth/cubit/auth_state.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
@@ -25,6 +28,8 @@ class _SplashPageState extends State<SplashPage>
   late Animation<double> _fadeOut;
   late Animation<Color?> _bgColor;
 
+  bool _isAnimationDone = false;
+
   @override
   void initState() {
     super.initState();
@@ -35,10 +40,9 @@ class _SplashPageState extends State<SplashPage>
   void _initAnimations() {
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2000), // Reduzido de 2500
+      duration: const Duration(milliseconds: 2000),
     );
 
-    // Fade in suave
     _fadeIn = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
@@ -46,7 +50,6 @@ class _SplashPageState extends State<SplashPage>
       ),
     );
 
-    // Scale suave
     _scale = Tween<double>(begin: 0.8, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
@@ -54,7 +57,6 @@ class _SplashPageState extends State<SplashPage>
       ),
     );
 
-    // Fade out rápido (80% - 100% do tempo = 400ms)
     _fadeOut = Tween<double>(begin: 1.0, end: 0.0).animate(
       CurvedAnimation(
         parent: _controller,
@@ -62,7 +64,6 @@ class _SplashPageState extends State<SplashPage>
       ),
     );
 
-    // Cor de fundo saindo (80% - 100% do tempo)
     _bgColor = ColorTween(begin: const Color(0xFF13223F), end: Colors.white)
         .animate(
           CurvedAnimation(
@@ -70,14 +71,30 @@ class _SplashPageState extends State<SplashPage>
             curve: const Interval(0.8, 1.0, curve: Curves.easeOut),
           ),
         );
+
+    _controller.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        setState(() => _isAnimationDone = true);
+        _checkNavigation();
+      }
+    });
   }
 
-  void _startAnimation() async {
-    await _controller.forward();
+  void _startAnimation() {
+    _controller.forward();
+  }
 
-    if (mounted) {
+  void _checkNavigation() {
+    if (!mounted || !_isAnimationDone) return;
+
+    final state = context.read<AuthCubit>().state;
+
+    if (state is AuthAuthenticated) {
+      Navigator.pushReplacementNamed(context, '/dashboard');
+    } else if (state is AuthUnauthenticated || state is AuthError) {
       Navigator.pushReplacementNamed(context, '/login');
     }
+    // Se estiver Loading ou Initial, aguarda o BlocListener
   }
 
   @override
@@ -88,29 +105,34 @@ class _SplashPageState extends State<SplashPage>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        // Combinar fade in e fade out
-        final opacity = _fadeIn.value * _fadeOut.value;
+    return BlocListener<AuthCubit, AuthState>(
+      listener: (context, state) {
+        _checkNavigation();
+      },
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          final opacity = _fadeIn.value * _fadeOut.value;
 
-        return Scaffold(
-          backgroundColor: _bgColor.value,
-          body: Center(
-            child: Transform.scale(
-              scale: _scale.value,
-              child: Opacity(
-                opacity: opacity.clamp(0.0, 1.0),
-                child: Image.asset(
-                  'assets/images/mascot_face.png',
-                  height: 1000,
-                  fit: BoxFit.contain,
+          return Scaffold(
+            backgroundColor: _bgColor.value,
+            body: Center(
+              child: Transform.scale(
+                scale: _scale.value,
+                child: Opacity(
+                  opacity: opacity.clamp(0.0, 1.0),
+                  child: Image.asset(
+                    'assets/images/mascot_face.png',
+                    height: 300, // Ajustado para ser responsivo
+                    width: 300,
+                    fit: BoxFit.contain,
+                  ),
                 ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }

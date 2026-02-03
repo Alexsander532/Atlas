@@ -75,4 +75,36 @@ class ChatService {
       'text': '', // Limpa o texto para privacidade/segurança
     });
   }
+
+  /// Define o status de "digitando" do usuário.
+  ///
+  /// Salva um documento temporário na coleção 'typing_status'.
+  Future<void> setTypingStatus({
+    required String userId,
+    required String userName,
+    required bool isTyping,
+  }) async {
+    final docRef = _firestore.collection('typing_status').doc(userId);
+
+    if (isTyping) {
+      await docRef.set({
+        'userName': userName,
+        'lastTypedAt': FieldValue.serverTimestamp(),
+      });
+    } else {
+      await docRef.delete();
+    }
+  }
+
+  /// Stream de usuários que estão digitando.
+  ///
+  /// Filtra pelo userId para não mostrar o próprio usuário.
+  Stream<List<String>> getTypingUsersStream(String currentUserId) {
+    return _firestore.collection('typing_status').snapshots().map((snapshot) {
+      return snapshot.docs
+          .where((doc) => doc.id != currentUserId)
+          .map((doc) => doc['userName'] as String)
+          .toList();
+    });
+  }
 }
