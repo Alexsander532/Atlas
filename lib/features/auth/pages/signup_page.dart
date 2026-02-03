@@ -30,18 +30,15 @@ class _SignUpPageState extends State<SignUpPage> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
   bool _obscurePassword = true;
-  bool _obscureConfirmPassword = true;
 
   @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
-    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -176,29 +173,6 @@ class _SignUpPageState extends State<SignUpPage> {
                               }
                               if (value.length < 6) {
                                 return 'A senha deve ter pelo menos 6 caracteres';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-
-                          // ====== CAMPO CONFIRMAR SENHA ======
-                          _buildPasswordField(
-                            controller: _confirmPasswordController,
-                            hintText: 'Confirmar Senha',
-                            isObscure: _obscureConfirmPassword,
-                            onToggleVisibility: () {
-                              setState(() {
-                                _obscureConfirmPassword =
-                                    !_obscureConfirmPassword;
-                              });
-                            },
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Confirme sua senha';
-                              }
-                              if (value != _passwordController.text) {
-                                return 'As senhas não conferem';
                               }
                               return null;
                             },
