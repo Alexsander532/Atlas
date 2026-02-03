@@ -18,7 +18,7 @@ import '../../auth/cubit/auth_state.dart';
 import '../services/checkin_service.dart';
 import '../services/ranking_service.dart';
 import 'checkin_form_page.dart';
-import 'chat_placeholder_page.dart';
+import '../../chat/pages/chat_page.dart';
 import 'profile_page.dart';
 
 /// Página principal do Dashboard.
@@ -373,7 +373,7 @@ class _DashboardPageState extends State<DashboardPage> {
       case 1:
         return _buildRankingContent();
       case 2:
-        return const ChatPlaceholderPage();
+        return const ChatPage();
       case 3:
         return const ProfilePage();
       default:
