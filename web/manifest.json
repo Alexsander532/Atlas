@@ -1,11 +1,11 @@
 {
-    "name": "book_club_restauracao",
-    "short_name": "book_club_restauracao",
+    "name": "Atlas - Clube do Livro",
+    "short_name": "Atlas",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#1E1E2C",
     "theme_color": "#1E1E2C",
-    "description": "A new Flutter project.",
+    "description": "Acompanhe sua leitura diária, mantenha a constância e conecte-se com o Atlas.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
