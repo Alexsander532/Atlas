@@ -31,7 +31,6 @@ import 'features/splash/pages/splash_page.dart';
 import 'features/dashboard/cubit/dashboard_cubit.dart';
 import 'features/dashboard/pages/dashboard_page.dart';
 import 'features/dashboard/repositories/checkin_repository.dart';
-import 'features/dashboard/services/checkin_service.dart';
 
 /// Widget principal do aplicativo.
 ///
@@ -48,8 +47,7 @@ class App extends StatelessWidget {
     // Em uma app real, use dependency injection (get_it, etc)
     final authService = AuthService();
     final authRepository = AuthRepository(authService);
-    final checkinService = CheckinService();
-    final checkinRepository = CheckinRepository(checkinService);
+    final checkinRepository = CheckinRepository();
 
     return MultiBlocProvider(
       providers: [

@@ -11,10 +11,11 @@
 /// - [DashboardError]: Erro ao carregar dados
 ///
 /// ============================================================================
+library dashboard_state;
 
 import 'package:equatable/equatable.dart';
 import '../models/checkin_model.dart';
-import '../models/ranking_model.dart';
+import '../services/ranking_service.dart';
 
 /// Classe base abstrata para todos os estados do Dashboard.
 abstract class DashboardState extends Equatable {
@@ -45,7 +46,7 @@ class DashboardLoaded extends DashboardState {
   final bool hasCheckedInToday;
 
   /// Ranking de usuários por constância
-  final List<RankingModel> ranking;
+  final List<RankingItem> ranking;
 
   /// Histórico recente de check-ins do usuário
   final List<CheckinModel> recentActivity;
@@ -67,7 +68,7 @@ class DashboardLoaded extends DashboardState {
   /// Cria uma cópia com campos alterados.
   DashboardLoaded copyWith({
     bool? hasCheckedInToday,
-    List<RankingModel>? ranking,
+    List<RankingItem>? ranking,
     List<CheckinModel>? recentActivity,
     int? totalCheckins,
     String? userName,

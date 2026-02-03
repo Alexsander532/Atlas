@@ -268,6 +268,7 @@ class _SignUpPageState extends State<SignUpPage> {
       controller: controller,
       validator: validator,
       keyboardType: keyboardType,
+      style: const TextStyle(color: Colors.black),
       decoration: InputDecoration(
         hintText: hintText,
         hintStyle: const TextStyle(color: Colors.grey),
@@ -308,6 +309,7 @@ class _SignUpPageState extends State<SignUpPage> {
       controller: controller,
       obscureText: isObscure,
       validator: validator,
+      style: const TextStyle(color: Colors.black),
       decoration: InputDecoration(
         hintText: hintText,
         hintStyle: const TextStyle(color: Colors.grey),

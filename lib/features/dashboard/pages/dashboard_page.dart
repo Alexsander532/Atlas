@@ -1,31 +1,27 @@
 /// ============================================================================
-/// DASHBOARD PAGE - Tela Principal do Aplicativo
+/// DASHBOARD PAGE - Tela Principal do Aplicativo (Responsiva)
 /// ============================================================================
 ///
-/// Tela principal após o login, contendo:
-/// - Saudação ao usuário
-/// - Card de check-in diário
-/// - Ranking de constância
-/// - Histórico de atividades
+/// Tela principal após o login, com layout adaptativo:
+/// - Mobile: BottomNavigationBar (4 abas)
+/// - Web/Desktop: NavigationRail lateral com hover para expandir
+///
+/// Abas: Início, Ranking, Chat, Perfil
 ///
 /// ============================================================================
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../core/widgets/loading_indicator.dart';
 import '../../auth/cubit/auth_cubit.dart';
 import '../../auth/cubit/auth_state.dart';
-import '../cubit/dashboard_cubit.dart';
-import '../cubit/dashboard_state.dart';
-import '../widgets/activity_card.dart';
-import '../widgets/checkin_card.dart';
-import '../widgets/ranking_card.dart';
+import '../services/checkin_service.dart';
+import '../services/ranking_service.dart';
+import 'checkin_form_page.dart';
+import 'chat_placeholder_page.dart';
+import 'profile_page.dart';
 
 /// Página principal do Dashboard.
-///
-/// Carrega dados automaticamente ao ser montada
-/// e reage a mudanças de estado do [DashboardCubit].
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
 
@@ -34,14 +30,108 @@ class DashboardPage extends StatefulWidget {
 }
 
 class _DashboardPageState extends State<DashboardPage> {
+  // Índice da página selecionada no menu
+  int _selectedIndex = 0;
+
+  // Controla se a barra lateral está expandida (hover no desktop)
+  bool _isRailExpanded = false;
+
+  // Breakpoint para trocar de layout
+  static const double _breakpoint = 800;
+
+  // Serviços
+  final CheckinService _checkinService = CheckinService();
+  final RankingService _rankingService = RankingService();
+
+  // Dados
+  bool _hasCheckedInToday = false;
+  Map<String, dynamic>? _streakData;
+  List<RankingItem> _ranking = [];
+  bool _isLoading = true;
+
   @override
   void initState() {
     super.initState();
-    // Carrega dados ao iniciar
-    context.read<DashboardCubit>().loadDashboard();
+    _loadData();
   }
 
-  /// Realiza o logout
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+
+    final authState = context.read<AuthCubit>().state;
+    if (authState is AuthAuthenticated) {
+      try {
+        final hasChecked = await _checkinService.hasCheckedInToday(
+          authState.user.id,
+        );
+        final streakData = await _checkinService.getUserStreakData(
+          authState.user.id,
+        );
+        final ranking = await _rankingService.getRanking(limit: 20);
+
+        if (mounted) {
+          setState(() {
+            _hasCheckedInToday = hasChecked;
+            _streakData = streakData;
+            _ranking = ranking;
+            _isLoading = false;
+          });
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Erro ao carregar dados: $e')));
+        }
+      }
+    }
+  }
+
+  /// Itens do menu de navegação
+  List<NavigationItem> get _navigationItems => [
+    NavigationItem(
+      icon: Icons.home_outlined,
+      selectedIcon: Icons.home,
+      label: 'Início',
+    ),
+    NavigationItem(
+      icon: Icons.emoji_events_outlined,
+      selectedIcon: Icons.emoji_events,
+      label: 'Ranking',
+    ),
+    NavigationItem(
+      icon: Icons.chat_bubble_outline,
+      selectedIcon: Icons.chat_bubble,
+      label: 'Chat',
+    ),
+    NavigationItem(
+      icon: Icons.person_outline,
+      selectedIcon: Icons.person,
+      label: 'Perfil',
+    ),
+  ];
+
+  /// Abre o formulário de check-in.
+  void _openCheckinForm() {
+    final authState = context.read<AuthCubit>().state;
+    if (authState is! AuthAuthenticated) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CheckinFormPage(
+          userId: authState.user.id,
+          userName: authState.user.name,
+          onSuccess: () {
+            _loadData(); // Recarrega os dados após check-in
+          },
+        ),
+      ),
+    );
+  }
+
+  /// Realiza o logout.
   void _onLogout() {
     showDialog(
       context: context,
@@ -65,161 +155,675 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
+  /// Muda a página selecionada.
+  void _onDestinationSelected(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
     return BlocListener<AuthCubit, AuthState>(
       listener: (context, state) {
-        // Redireciona para login ao fazer logout
         if (state is AuthUnauthenticated || state is AuthInitial) {
           Navigator.pushReplacementNamed(context, '/login');
         }
       },
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Atlas'),
-          actions: [
-            // Botão de refresh
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: () => context.read<DashboardCubit>().refresh(),
-              tooltip: 'Atualizar',
-            ),
-            // Botão de logout
-            IconButton(
-              icon: const Icon(Icons.logout),
-              onPressed: _onLogout,
-              tooltip: 'Sair',
-            ),
-          ],
-        ),
-        body: BlocConsumer<DashboardCubit, DashboardState>(
-          listener: (context, state) {
-            // Exibe erros como SnackBar
-            if (state is DashboardError) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(state.message),
-                  backgroundColor: colorScheme.error,
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            }
-          },
-          builder: (context, state) {
-            // Estado de loading inicial
-            if (state is DashboardInitial || state is DashboardLoading) {
-              return const LoadingIndicator(message: 'Carregando...');
-            }
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final bool isMobile = constraints.maxWidth < _breakpoint;
 
-            // Obtém dados do estado
-            DashboardLoaded data;
-            bool isCheckinLoading = false;
+          if (isMobile) {
+            return _buildMobileLayout();
+          } else {
+            return _buildDesktopLayout();
+          }
+        },
+      ),
+    );
+  }
 
-            if (state is DashboardLoaded) {
-              data = state;
-            } else if (state is DashboardCheckinInProgress) {
-              data = state.currentData;
-              isCheckinLoading = true;
-            } else if (state is DashboardError) {
-              // Se erro, tenta usar dados anteriores ou mostra erro
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.error_outline,
-                      size: 64,
-                      color: colorScheme.error,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Erro ao carregar dados',
-                      style: theme.textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      state.message,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 24),
-                    ElevatedButton.icon(
-                      onPressed: () =>
-                          context.read<DashboardCubit>().loadDashboard(),
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Tentar novamente'),
-                    ),
-                  ],
-                ),
-              );
-            } else {
-              // Estado desconhecido
-              return const LoadingIndicator();
-            }
-
-            // Conteúdo do Dashboard
-            return RefreshIndicator(
-              onRefresh: () => context.read<DashboardCubit>().refresh(),
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // ====== SAUDAÇÃO ======
-                    Text(
-                      'Olá, ${data.userName}! 👋',
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Continue sua sequência de leitura!',
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // ====== CARD DE CHECK-IN ======
-                    CheckinCard(
-                      hasCheckedInToday: data.hasCheckedInToday,
-                      totalCheckins: data.totalCheckins,
-                      isLoading: isCheckinLoading,
-                      onCheckin: () =>
-                          context.read<DashboardCubit>().performCheckin(),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // ====== RANKING ======
-                    RankingCard(
-                      ranking: data.ranking,
-                      currentUserId:
-                          context.read<AuthCubit>().state is AuthAuthenticated
-                          ? (context.read<AuthCubit>().state
-                                    as AuthAuthenticated)
-                                .user
-                                .id
-                          : null,
-                    ),
-                    const SizedBox(height: 16),
-
-                    // ====== ATIVIDADES RECENTES ======
-                    ActivityCard(activities: data.recentActivity),
-                    const SizedBox(height: 24),
-                  ],
-                ),
+  /// Layout para dispositivos móveis com BottomNavigationBar.
+  Widget _buildMobileLayout() {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Atlas'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadData,
+            tooltip: 'Atualizar',
+          ),
+        ],
+      ),
+      body: _buildPageContent(),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: _onDestinationSelected,
+        destinations: _navigationItems
+            .map(
+              (item) => NavigationDestination(
+                icon: Icon(item.icon),
+                selectedIcon: Icon(item.selectedIcon),
+                label: item.label,
               ),
-            );
-          },
+            )
+            .toList(),
+      ),
+    );
+  }
+
+  /// Layout para desktop/web com NavigationRail lateral.
+  Widget _buildDesktopLayout() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Scaffold(
+      body: Row(
+        children: [
+          // ====== BARRA LATERAL ======
+          MouseRegion(
+            onEnter: (_) => setState(() => _isRailExpanded = true),
+            onExit: (_) => setState(() => _isRailExpanded = false),
+            child: NavigationRail(
+              extended: _isRailExpanded,
+              minWidth: 72,
+              minExtendedWidth: 200,
+              backgroundColor: colorScheme.surfaceContainerLow,
+              selectedIndex: _selectedIndex,
+              onDestinationSelected: _onDestinationSelected,
+              leading: Column(
+                children: [
+                  const SizedBox(height: 8),
+                  IconButton(
+                    icon: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      child: Icon(
+                        _isRailExpanded ? Icons.menu_open : Icons.menu,
+                        key: ValueKey(_isRailExpanded),
+                      ),
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _isRailExpanded = !_isRailExpanded;
+                      });
+                    },
+                    tooltip: _isRailExpanded
+                        ? 'Recolher menu'
+                        : 'Expandir menu',
+                  ),
+                  const SizedBox(height: 16),
+                  if (_isRailExpanded)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        'Atlas',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.primary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.clip,
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+              trailing: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisSize:
+                    MainAxisSize.min, // Importante para evitar erro de layout
+                children: [
+                  const Divider(),
+                  _RailMenuButton(
+                    icon: Icons.refresh,
+                    label: 'Atualizar',
+                    onPressed: _loadData,
+                    expanded: _isRailExpanded,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(height: 8),
+                  _RailMenuButton(
+                    icon: Icons.logout,
+                    label: 'Sair',
+                    onPressed: _onLogout,
+                    expanded: _isRailExpanded,
+                    color: colorScheme.error,
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+              destinations: _navigationItems
+                  .map(
+                    (item) => NavigationRailDestination(
+                      icon: Icon(item.icon),
+                      selectedIcon: Icon(item.selectedIcon),
+                      label: Text(item.label),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+
+          const VerticalDivider(thickness: 1, width: 1),
+
+          // ====== CONTEÚDO PRINCIPAL ======
+          Expanded(
+            child: Column(
+              children: [
+                Container(
+                  height: 64,
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  decoration: BoxDecoration(
+                    color: theme.scaffoldBackgroundColor,
+                    border: Border(
+                      bottom: BorderSide(
+                        color: colorScheme.outlineVariant.withOpacity(0.5),
+                      ),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(
+                        _getPageTitle(),
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const Spacer(),
+                      CircleAvatar(
+                        backgroundColor: colorScheme.primaryContainer,
+                        child: Icon(
+                          Icons.person,
+                          color: colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(child: _buildPageContent()),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getPageTitle() {
+    switch (_selectedIndex) {
+      case 0:
+        return 'Início';
+      case 1:
+        return 'Ranking';
+      case 2:
+        return 'Chat';
+      case 3:
+        return 'Perfil';
+      default:
+        return 'Atlas';
+    }
+  }
+
+  Widget _buildPageContent() {
+    switch (_selectedIndex) {
+      case 0:
+        return _buildHomeContent();
+      case 1:
+        return _buildRankingContent();
+      case 2:
+        return const ChatPlaceholderPage();
+      case 3:
+        return const ProfilePage();
+      default:
+        return _buildHomeContent();
+    }
+  }
+
+  /// Conteúdo da página inicial (Home).
+  Widget _buildHomeContent() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final authState = context.read<AuthCubit>().state;
+    final userName = authState is AuthAuthenticated
+        ? authState.user.name
+        : 'Usuário';
+
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ====== SAUDAÇÃO ======
+            Text(
+              'Olá, $userName! 👋',
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Continue sua sequência de leitura!',
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // ====== CARD DE CHECK-IN ======
+            _buildCheckinCard(theme, colorScheme),
+            const SizedBox(height: 16),
+
+            // ====== ESTATÍSTICAS RÁPIDAS ======
+            if (_streakData != null) _buildStatsRow(theme, colorScheme),
+            const SizedBox(height: 16),
+
+            // ====== MINI RANKING ======
+            _buildMiniRanking(theme, colorScheme),
+            const SizedBox(height: 24),
+          ],
         ),
       ),
     );
   }
+
+  Widget _buildCheckinCard(ThemeData theme, ColorScheme colorScheme) {
+    return Card(
+      elevation: 0,
+      color: _hasCheckedInToday
+          ? colorScheme.primaryContainer.withOpacity(0.5)
+          : colorScheme.primaryContainer,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Icon(
+              _hasCheckedInToday ? Icons.check_circle : Icons.menu_book,
+              size: 48,
+              color: _hasCheckedInToday
+                  ? Colors.green
+                  : colorScheme.onPrimaryContainer,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _hasCheckedInToday
+                  ? 'Leitura confirmada hoje! ✅'
+                  : 'Registre sua leitura de hoje',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _hasCheckedInToday
+                  ? 'Continue assim! Sua sequência está crescendo.'
+                  : 'Clique abaixo para manter sua sequência',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onPrimaryContainer.withOpacity(0.8),
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (!_hasCheckedInToday)
+              FilledButton.icon(
+                onPressed: _openCheckinForm,
+                icon: const Icon(Icons.add),
+                label: const Text('Confirmar Leitura'),
+              )
+            else
+              OutlinedButton.icon(
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Você já registrou sua leitura hoje! 🎉'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.visibility),
+                label: const Text('Ver meu check-in'),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatsRow(ThemeData theme, ColorScheme colorScheme) {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildStatCard(
+            icon: Icons.local_fire_department,
+            value: '${_streakData!['currentStreak']}',
+            label: 'Sequência',
+            color: Colors.orange,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildStatCard(
+            icon: Icons.emoji_events,
+            value: '${_streakData!['maxStreak']}',
+            label: 'Recorde',
+            color: Colors.amber,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildStatCard(
+            icon: Icons.check_circle,
+            value: '${_streakData!['totalCheckins']}',
+            label: 'Total',
+            color: Colors.green,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatCard({
+    required IconData icon,
+    required String value,
+    required String label,
+    required Color color,
+  }) {
+    final theme = Theme.of(context);
+
+    return Card(
+      elevation: 0,
+      color: color.withOpacity(0.1),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 24),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            Text(
+              label,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: Colors.grey[600],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMiniRanking(ThemeData theme, ColorScheme colorScheme) {
+    final topRanking = _ranking.take(5).toList();
+
+    return Card(
+      elevation: 0,
+      color: colorScheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.emoji_events, color: Colors.amber),
+                const SizedBox(width: 8),
+                Text(
+                  'Top 5 Ranking',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Spacer(),
+                TextButton(
+                  onPressed: () => setState(() => _selectedIndex = 1),
+                  child: const Text('Ver todos'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (topRanking.isEmpty)
+              const Center(child: Text('Nenhum participante ainda'))
+            else
+              ...topRanking.map((item) => _buildRankingTile(item)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRankingTile(RankingItem item) {
+    final authState = context.read<AuthCubit>().state;
+    final isCurrentUser =
+        authState is AuthAuthenticated && authState.user.id == item.id;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: isCurrentUser
+            ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.5)
+            : null,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          _buildPositionBadge(item.position),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              item.name,
+              style: TextStyle(
+                fontWeight: isCurrentUser ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ),
+          Row(
+            children: [
+              const Icon(
+                Icons.local_fire_department,
+                size: 16,
+                color: Colors.orange,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                '${item.currentStreak}',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPositionBadge(int position) {
+    Color color;
+    IconData? icon;
+
+    switch (position) {
+      case 1:
+        color = Colors.amber;
+        icon = Icons.emoji_events;
+        break;
+      case 2:
+        color = Colors.grey[400]!;
+        icon = Icons.emoji_events;
+        break;
+      case 3:
+        color = Colors.brown[300]!;
+        icon = Icons.emoji_events;
+        break;
+      default:
+        color = Colors.grey[300]!;
+        icon = null;
+    }
+
+    return Container(
+      width: 28,
+      height: 28,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      child: Center(
+        child: icon != null
+            ? Icon(icon, size: 16, color: Colors.white)
+            : Text(
+                '$position',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  fontSize: 12,
+                ),
+              ),
+      ),
+    );
+  }
+
+  /// Conteúdo da página de Ranking completo.
+  Widget _buildRankingContent() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: _ranking.length + 1,
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Text(
+                '🏆 Ranking de Leitura',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            );
+          }
+
+          final item = _ranking[index - 1];
+          final authState = context.read<AuthCubit>().state;
+          final isCurrentUser =
+              authState is AuthAuthenticated && authState.user.id == item.id;
+
+          return Card(
+            elevation: 0,
+            color: isCurrentUser
+                ? colorScheme.primaryContainer
+                : colorScheme.surfaceContainerLow,
+            margin: const EdgeInsets.only(bottom: 8),
+            child: ListTile(
+              leading: _buildPositionBadge(item.position),
+              title: Text(
+                item.name,
+                style: TextStyle(
+                  fontWeight: isCurrentUser
+                      ? FontWeight.bold
+                      : FontWeight.normal,
+                ),
+              ),
+              subtitle: Text('Total: ${item.totalCheckins} check-ins'),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.local_fire_department, color: Colors.orange),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${item.currentStreak}',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.orange,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Botão customizado para o rodapé do NavigationRail
+class _RailMenuButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+  final bool expanded;
+  final Color? color;
+
+  const _RailMenuButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    required this.expanded,
+    this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onPressed,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        height: 56, // Altura similar aos itens do rail
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        width: expanded ? 200 : 72, // Largura fixa baseada no estado
+        alignment: Alignment.centerLeft, // Alinhamento consistente
+        child: Row(
+          mainAxisSize: MainAxisSize.min, // Ocupa o necessário
+          children: [
+            // Hack para centralizar quando fechado:
+            // Padding calculado ou SizedBox para alinhar o ícone com os destinos
+            SizedBox(width: 40, child: Icon(icon, color: color, size: 24)),
+            if (expanded) ...[
+              const SizedBox(width: 4), // Espaço entre ícone e texto
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(color: color, fontWeight: FontWeight.w600),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis, // Evita quebra de linha feia
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Modelo auxiliar para itens de navegação.
+class NavigationItem {
+  final IconData icon;
+  final IconData selectedIcon;
+  final String label;
+
+  NavigationItem({
+    required this.icon,
+    required this.selectedIcon,
+    required this.label,
+  });
 }

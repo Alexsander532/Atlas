@@ -11,10 +11,14 @@
 /// - Facilitar testes com mocks
 ///
 /// ============================================================================
+library checkin_repository;
+
+import 'dart:io';
+import 'dart:typed_data';
 
 import '../models/checkin_model.dart';
-import '../models/ranking_model.dart';
 import '../services/checkin_service.dart';
+import '../services/ranking_service.dart';
 
 /// Repositório de check-in.
 ///
@@ -23,9 +27,14 @@ import '../services/checkin_service.dart';
 class CheckinRepository {
   /// Instância do serviço de check-in.
   final CheckinService _checkinService;
+  final RankingService _rankingService;
 
-  /// Construtor que recebe o serviço de check-in.
-  CheckinRepository(this._checkinService);
+  /// Construtor que recebe os serviços.
+  CheckinRepository({
+    CheckinService? checkinService,
+    RankingService? rankingService,
+  }) : _checkinService = checkinService ?? CheckinService(),
+       _rankingService = rankingService ?? RankingService();
 
   // ============================================================
   // MÉTODOS PÚBLICOS
@@ -35,43 +44,64 @@ class CheckinRepository {
   ///
   /// Regras:
   /// - Apenas 1 check-in por dia
-  /// - Valida userId antes de criar
+  /// - Requer título e foto
   ///
   /// Lança [CheckinException] se já existir check-in no dia.
-  Future<CheckinModel> createCheckin(String userId) async {
+  Future<CheckinModel> createCheckin({
+    required String userId,
+    required String userName,
+    required String title,
+    String? description,
+    File? imageFile,
+    Uint8List? imageBytes,
+  }) async {
     if (userId.isEmpty) {
       throw const CheckinException('Usuário inválido');
     }
 
-    return await _checkinService.createCheckin(userId);
+    return await _checkinService.performCheckin(
+      userId: userId,
+      userName: userName,
+      title: title,
+      description: description,
+      imageFile: imageFile,
+      imageBytes: imageBytes,
+    );
   }
 
   /// Verifica se o usuário já fez check-in hoje.
   Future<bool> hasCheckinToday(String userId) async {
     if (userId.isEmpty) return false;
 
-    return await _checkinService.hasCheckinToday(userId);
+    return await _checkinService.hasCheckedInToday(userId);
   }
 
-  /// Busca o ranking de usuários por total de check-ins.
-  Future<List<RankingModel>> fetchRanking({int limit = 10}) async {
-    return await _checkinService.fetchRanking(limit: limit);
+  /// Busca o ranking de usuários por streak.
+  Future<List<RankingItem>> fetchRanking({int limit = 20}) async {
+    return await _rankingService.getRanking(limit: limit);
   }
 
   /// Busca o histórico de check-ins do usuário.
   Future<List<CheckinModel>> fetchHistory(
     String userId, {
-    int limit = 7,
+    int limit = 50,
   }) async {
     if (userId.isEmpty) return [];
 
-    return await _checkinService.fetchHistory(userId, limit: limit);
+    return await _checkinService.getUserCheckins(userId, limit: limit);
   }
 
-  /// Retorna o total de check-ins do usuário.
-  Future<int> getTotalCheckins(String userId) async {
-    if (userId.isEmpty) return 0;
+  /// Retorna os dados de streak do usuário.
+  Future<Map<String, dynamic>> getStreakData(String userId) async {
+    if (userId.isEmpty) {
+      return {'currentStreak': 0, 'maxStreak': 0, 'totalCheckins': 0};
+    }
 
-    return await _checkinService.getTotalCheckins(userId);
+    return await _checkinService.getUserStreakData(userId);
+  }
+
+  /// Busca os check-ins recentes de todos os usuários.
+  Future<List<CheckinModel>> getRecentCheckins({int limit = 20}) async {
+    return await _checkinService.getRecentCheckins(limit: limit);
   }
 }

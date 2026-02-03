@@ -8,12 +8,13 @@
 /// - Histórico de atividades
 ///
 /// ============================================================================
+library dashboard_cubit;
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../repositories/checkin_repository.dart';
 import '../services/checkin_service.dart';
+import '../services/ranking_service.dart';
 import '../models/checkin_model.dart';
-import '../models/ranking_model.dart';
 import 'dashboard_state.dart';
 
 /// Cubit responsável pelo gerenciamento do Dashboard.
@@ -55,15 +56,17 @@ class DashboardCubit extends Cubit<DashboardState> {
         _checkinRepository.hasCheckinToday(_userId),
         _checkinRepository.fetchRanking(limit: 10),
         _checkinRepository.fetchHistory(_userId, limit: 7),
-        _checkinRepository.getTotalCheckins(_userId),
+        _checkinRepository.getStreakData(_userId),
       ]);
+
+      final streakData = results[3] as Map<String, dynamic>;
 
       emit(
         DashboardLoaded(
           hasCheckedInToday: results[0] as bool,
-          ranking: (results[1] as List).cast<RankingModel>(),
+          ranking: (results[1] as List).cast<RankingItem>(),
           recentActivity: (results[2] as List).cast<CheckinModel>(),
-          totalCheckins: results[3] as int,
+          totalCheckins: streakData['totalCheckins'] as int,
           userName: _userName,
         ),
       );
@@ -74,10 +77,8 @@ class DashboardCubit extends Cubit<DashboardState> {
 
   /// Realiza o check-in diário.
   ///
-  /// Fluxo:
-  /// 1. Verifica se já fez check-in hoje
-  /// 2. Cria o check-in
-  /// 3. Atualiza o estado com sucesso ou erro
+  /// Obs: O check-in agora é feito via formulário separado.
+  /// Este método é mantido para compatibilidade.
   Future<void> performCheckin() async {
     // Obtém dados atuais se disponíveis
     final currentState = state;
@@ -98,10 +99,8 @@ class DashboardCubit extends Cubit<DashboardState> {
     emit(DashboardCheckinInProgress(currentState));
 
     try {
-      // Cria o check-in
-      await _checkinRepository.createCheckin(_userId);
-
-      // Recarrega dados para atualizar ranking e histórico
+      // Nota: O check-in completo agora é feito via CheckinFormPage
+      // Este método apenas recarrega os dados
       await loadDashboard();
     } on CheckinException catch (e) {
       emit(DashboardError(e.message));

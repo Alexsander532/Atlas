@@ -388,6 +388,7 @@ class _LoginPageState extends State<LoginPage>
   }) {
     return TextFormField(
       controller: controller,
+      style: const TextStyle(color: Colors.black),
       validator: validator,
       keyboardType: keyboardType,
       decoration: InputDecoration(
@@ -443,6 +444,7 @@ class _PasswordInputState extends State<_PasswordInput> {
     return TextFormField(
       controller: widget.controller,
       obscureText: _obscureText,
+      style: const TextStyle(color: Colors.black),
       onFieldSubmitted: (_) => widget.onSubmitted(),
       validator: (value) {
         if (value == null || value.isEmpty) {

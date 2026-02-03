@@ -143,15 +143,22 @@ class AuthService {
       // Atualiza o displayName no Firebase Auth
       await user.updateDisplayName(name);
 
+      // Define role: admin se for o email específico, senão member
+      final isAdmin =
+          email.toLowerCase() == 'alexsanderaugusto142019@gmail.com';
+      final role = isAdmin ? 'admin' : 'member';
+
       // Salva dados adicionais no Firestore
       final now = DateTime.now();
       await _firestore.collection('users').doc(user.uid).set({
         'name': name,
         'email': email,
+        'role': role,
         'createdAt': Timestamp.fromDate(now),
         'currentStreak': 0,
         'maxStreak': 0,
         'totalCheckins': 0,
+        'lastCheckinDate': null, // Nunca fez check-in
       });
 
       return UserModel(id: user.uid, email: email, name: name, createdAt: now);

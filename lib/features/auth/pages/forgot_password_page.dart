@@ -156,6 +156,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                           TextFormField(
                             controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
+                            style: const TextStyle(color: Colors.black),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return 'Por favor, informe seu email';

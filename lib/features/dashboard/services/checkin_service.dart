@@ -2,32 +2,20 @@
 /// CHECKIN SERVICE - Serviço de Check-in
 /// ============================================================================
 ///
-/// Camada de integração com o provedor de dados de check-ins.
-/// Atualmente implementado com MOCK para desenvolvimento.
-///
-/// PREPARAÇÃO PARA FIRESTORE:
-///
-/// Coleção: checkins
-/// Documento: {userId}_{date}
-/// Campos:
-///   - userId: String
-///   - date: String (yyyy-MM-dd)
-///   - createdAt: Timestamp
-///
-/// Coleção: users (para ranking)
-/// Documento: {userId}
-/// Campos:
-///   - name: String
-///   - totalCheckins: Number (atualizado a cada check-in)
+/// Gerencia a lógica de check-in de leitura:
+/// - Validação de check-in único por dia
+/// - Cálculo de streak
+/// - Persistência no Firestore
 ///
 /// ============================================================================
 
-import '../../../core/utils/date_utils.dart';
-import '../models/checkin_model.dart';
-import '../models/ranking_model.dart';
+import 'dart:io';
+import 'dart:typed_data';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 
-// TODO: [FIREBASE_REAL] Descomente quando integrar Firebase real
-// import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../core/services/storage_service.dart';
+import '../models/checkin_model.dart';
 
 /// Exceção customizada para erros de check-in.
 class CheckinException implements Exception {
@@ -40,244 +28,193 @@ class CheckinException implements Exception {
   String toString() => 'CheckinException: $message';
 }
 
-/// Serviço de check-in do aplicativo.
-///
-/// Responsável pela comunicação direta com Firestore (ou mock).
+/// Serviço de check-in de leitura.
 class CheckinService {
-  // TODO: [FIREBASE_REAL] Descomente quando integrar Firebase real
-  // final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final StorageService _storageService = StorageService();
 
-  // ============================================================
-  // DADOS MOCK - Remover quando integrar Firebase
-  // ============================================================
+  // Formato de data usado para comparação (YYYY-MM-DD)
+  final DateFormat _dateFormat = DateFormat('yyyy-MM-dd');
 
-  /// Check-ins mock (usuário já fez check-in em alguns dias)
-  final Map<String, CheckinModel> _mockCheckins = {};
-
-  /// Ranking mock com usuários fictícios
-  final List<RankingModel> _mockRanking = [
-    const RankingModel(
-      id: 'user_003',
-      userName: 'Maria Silva',
-      totalCheckins: 45,
-      position: 1,
-    ),
-    const RankingModel(
-      id: 'user_004',
-      userName: 'João Santos',
-      totalCheckins: 38,
-      position: 2,
-    ),
-    const RankingModel(
-      id: 'user_001',
-      userName: 'Usuário Teste',
-      totalCheckins: 12,
-      position: 3,
-    ),
-    const RankingModel(
-      id: 'user_005',
-      userName: 'Ana Costa',
-      totalCheckins: 10,
-      position: 4,
-    ),
-    const RankingModel(
-      id: 'user_006',
-      userName: 'Pedro Lima',
-      totalCheckins: 7,
-      position: 5,
-    ),
-  ];
-
-  // ============================================================
-  // MÉTODOS DE CHECK-IN
-  // ============================================================
-
-  /// Cria um novo check-in para o usuário.
+  /// Realiza um check-in de leitura.
   ///
-  /// Lança [CheckinException] se já existir check-in no dia.
+  /// [userId] - ID do usuário
+  /// [userName] - Nome do usuário (para desnormalização)
+  /// [title] - Título do check-in
+  /// [description] - Descrição opcional
+  /// [imageFile] - Arquivo da imagem (mobile)
+  /// [imageBytes] - Bytes da imagem (web)
   ///
-  /// Exemplo:
-  /// ```dart
-  /// await checkinService.createCheckin('user_001');
-  /// ```
-  Future<CheckinModel> createCheckin(String userId) async {
-    await Future.delayed(const Duration(milliseconds: 500));
+  /// Retorna o [CheckinModel] criado.
+  Future<CheckinModel> performCheckin({
+    required String userId,
+    required String userName,
+    required String title,
+    String? description,
+    File? imageFile,
+    Uint8List? imageBytes,
+  }) async {
+    // Validações
+    if (title.trim().isEmpty) {
+      throw const CheckinException('O título é obrigatório');
+    }
 
-    final today = AppDateUtils.todayKey;
-    final docId = '${userId}_$today';
+    // Foto agora é opcional
+    // if (imageFile == null && imageBytes == null) {
+    //   throw const CheckinException('A foto é obrigatória');
+    // }
 
-    // Verifica se já existe check-in hoje
-    if (_mockCheckins.containsKey(docId)) {
+    // Data de hoje (formato YYYY-MM-DD)
+    final today = _dateFormat.format(DateTime.now());
+
+    // Busca dados do usuário
+    final userDoc = await _firestore.collection('users').doc(userId).get();
+    if (!userDoc.exists) {
+      throw const CheckinException('Usuário não encontrado');
+    }
+
+    final userData = userDoc.data()!;
+    final lastCheckinDate = userData['lastCheckinDate'] as String?;
+
+    // Verifica se já fez check-in hoje
+    if (lastCheckinDate == today) {
       throw const CheckinException(
-        'Você já fez check-in hoje!',
+        'Você já registrou sua leitura hoje!',
         code: 'already-checked-in',
       );
     }
 
-    // TODO: [FIREBASE_REAL] Substitua pelo código abaixo:
-    // final docRef = _firestore.collection('checkins').doc(docId);
-    //
-    // // Transação para garantir atomicidade
-    // await _firestore.runTransaction((transaction) async {
-    //   final doc = await transaction.get(docRef);
-    //
-    //   if (doc.exists) {
-    //     throw const CheckinException('Você já fez check-in hoje!');
-    //   }
-    //
-    //   final checkin = CheckinModel(
-    //     userId: userId,
-    //     date: today,
-    //     createdAt: DateTime.now(),
-    //   );
-    //
-    //   transaction.set(docRef, checkin.toMap());
-    //
-    //   // Incrementa contador no perfil do usuário
-    //   final userRef = _firestore.collection('users').doc(userId);
-    //   transaction.update(userRef, {
-    //     'totalCheckins': FieldValue.increment(1),
-    //   });
-    // });
-
-    // Implementação MOCK
-    final checkin = CheckinModel(
-      userId: userId,
-      date: today,
-      createdAt: DateTime.now(),
-    );
-
-    _mockCheckins[docId] = checkin;
-
-    // Atualiza ranking mock
-    final userIndex = _mockRanking.indexWhere((r) => r.id == userId);
-    if (userIndex != -1) {
-      final user = _mockRanking[userIndex];
-      _mockRanking[userIndex] = RankingModel(
-        id: user.id,
-        userName: user.userName,
-        totalCheckins: user.totalCheckins + 1,
-        position: user.position,
-      );
-      // Reordena ranking
-      _mockRanking.sort((a, b) => b.totalCheckins.compareTo(a.totalCheckins));
-      // Atualiza posições
-      for (int i = 0; i < _mockRanking.length; i++) {
-        _mockRanking[i] = _mockRanking[i].copyWithPosition(i + 1);
+    // Faz upload da imagem (se houver)
+    String? imageUrl;
+    if (imageFile != null || imageBytes != null) {
+      try {
+        imageUrl = await _storageService.uploadCheckinImage(
+          userId: userId,
+          imageFile: imageFile,
+          imageBytes: imageBytes,
+        );
+      } catch (e) {
+        throw CheckinException('Erro ao enviar imagem: $e');
       }
     }
 
-    print('✅ [MOCK] Check-in criado: $docId');
-    return checkin;
+    // Calcula o novo streak
+    final currentStreak = userData['currentStreak'] as int? ?? 0;
+    final maxStreak = userData['maxStreak'] as int? ?? 0;
+    final totalCheckins = userData['totalCheckins'] as int? ?? 0;
+
+    int newStreak;
+    if (lastCheckinDate == null) {
+      // Primeiro check-in
+      newStreak = 1;
+    } else {
+      // Verifica se fez check-in ontem
+      final yesterday = _dateFormat.format(
+        DateTime.now().subtract(const Duration(days: 1)),
+      );
+      if (lastCheckinDate == yesterday) {
+        // Mantém a sequência
+        newStreak = currentStreak + 1;
+      } else {
+        // Perdeu a sequência, mas não zera (apenas para de crescer)
+        // Começa nova sequência
+        newStreak = 1;
+      }
+    }
+
+    final newMaxStreak = newStreak > maxStreak ? newStreak : maxStreak;
+    final newTotalCheckins = totalCheckins + 1;
+
+    // Cria o documento de check-in
+    final checkinData = {
+      'userId': userId,
+      'userName': userName,
+      'title': title.trim(),
+      'description': description?.trim(),
+      'imageUrl': imageUrl,
+      'date': today,
+      'createdAt': FieldValue.serverTimestamp(),
+    };
+
+    // Salva no Firestore usando batch
+    final batch = _firestore.batch();
+
+    // Adiciona check-in
+    final checkinRef = _firestore.collection('checkins').doc();
+    batch.set(checkinRef, checkinData);
+
+    // Atualiza dados do usuário
+    batch.update(_firestore.collection('users').doc(userId), {
+      'currentStreak': newStreak,
+      'maxStreak': newMaxStreak,
+      'totalCheckins': newTotalCheckins,
+      'lastCheckinDate': today,
+    });
+
+    await batch.commit();
+
+    return CheckinModel(
+      id: checkinRef.id,
+      userId: userId,
+      userName: userName,
+      title: title.trim(),
+      description: description?.trim(),
+      imageUrl: imageUrl,
+      date: today,
+      createdAt: DateTime.now(),
+    );
   }
 
   /// Verifica se o usuário já fez check-in hoje.
-  Future<bool> hasCheckinToday(String userId) async {
-    await Future.delayed(const Duration(milliseconds: 200));
+  Future<bool> hasCheckedInToday(String userId) async {
+    final today = _dateFormat.format(DateTime.now());
 
-    final today = AppDateUtils.todayKey;
-    final docId = '${userId}_$today';
+    final userDoc = await _firestore.collection('users').doc(userId).get();
+    if (!userDoc.exists) return false;
 
-    // TODO: [FIREBASE_REAL] Substitua pelo código abaixo:
-    // final doc = await _firestore.collection('checkins').doc(docId).get();
-    // return doc.exists;
-
-    return _mockCheckins.containsKey(docId);
+    final lastCheckinDate = userDoc.data()?['lastCheckinDate'] as String?;
+    return lastCheckinDate == today;
   }
 
-  /// Busca o ranking de usuários por total de check-ins.
-  ///
-  /// Retorna os top [limit] usuários ordenados por constância.
-  Future<List<RankingModel>> fetchRanking({int limit = 10}) async {
-    await Future.delayed(const Duration(milliseconds: 300));
+  /// Busca os check-ins recentes de todos os usuários.
+  Future<List<CheckinModel>> getRecentCheckins({int limit = 20}) async {
+    final snapshot = await _firestore
+        .collection('checkins')
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .get();
 
-    // TODO: [FIREBASE_REAL] Substitua pelo código abaixo:
-    // final snapshot = await _firestore
-    //     .collection('users')
-    //     .orderBy('totalCheckins', descending: true)
-    //     .limit(limit)
-    //     .get();
-    //
-    // return snapshot.docs
-    //     .asMap()
-    //     .entries
-    //     .map((entry) => RankingModel.fromMap(
-    //           entry.value.data(),
-    //           entry.value.id,
-    //         ).copyWithPosition(entry.key + 1))
-    //     .toList();
-
-    return _mockRanking.take(limit).toList();
+    return snapshot.docs.map((doc) => CheckinModel.fromFirestore(doc)).toList();
   }
 
-  /// Busca o histórico de check-ins do usuário.
-  ///
-  /// Retorna os últimos [limit] check-ins ordenados por data.
-  Future<List<CheckinModel>> fetchHistory(
+  /// Busca os check-ins de um usuário específico.
+  Future<List<CheckinModel>> getUserCheckins(
     String userId, {
-    int limit = 7,
+    int limit = 50,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 300));
+    final snapshot = await _firestore
+        .collection('checkins')
+        .where('userId', isEqualTo: userId)
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .get();
 
-    // TODO: [FIREBASE_REAL] Substitua pelo código abaixo:
-    // final snapshot = await _firestore
-    //     .collection('checkins')
-    //     .where('userId', isEqualTo: userId)
-    //     .orderBy('date', descending: true)
-    //     .limit(limit)
-    //     .get();
-    //
-    // return snapshot.docs
-    //     .map((doc) => CheckinModel.fromMap(doc.data()))
-    //     .toList();
-
-    // Mock: Gera histórico fictício dos últimos dias
-    final mockHistory = <CheckinModel>[];
-    final now = DateTime.now();
-
-    // Adiciona check-ins mock para alguns dias passados
-    for (int i = 1; i <= limit; i++) {
-      // Pula alguns dias para simular constância irregular
-      if (i % 3 == 0) continue;
-
-      final date = now.subtract(Duration(days: i));
-      mockHistory.add(
-        CheckinModel(
-          userId: userId,
-          date: AppDateUtils.formatToCheckinKey(date),
-          createdAt: date,
-        ),
-      );
-    }
-
-    // Adiciona check-ins reais feitos na sessão
-    mockHistory.addAll(_mockCheckins.values.where((c) => c.userId == userId));
-
-    // Remove duplicatas e ordena
-    final uniqueHistory = <String, CheckinModel>{};
-    for (final checkin in mockHistory) {
-      uniqueHistory[checkin.date] = checkin;
-    }
-
-    final sortedHistory = uniqueHistory.values.toList()
-      ..sort((a, b) => b.date.compareTo(a.date));
-
-    return sortedHistory.take(limit).toList();
+    return snapshot.docs.map((doc) => CheckinModel.fromFirestore(doc)).toList();
   }
 
-  /// Retorna o total de check-ins do usuário.
-  Future<int> getTotalCheckins(String userId) async {
-    await Future.delayed(const Duration(milliseconds: 100));
+  /// Busca os dados de streak do usuário.
+  Future<Map<String, dynamic>> getUserStreakData(String userId) async {
+    final userDoc = await _firestore.collection('users').doc(userId).get();
+    if (!userDoc.exists) {
+      return {'currentStreak': 0, 'maxStreak': 0, 'totalCheckins': 0};
+    }
 
-    // TODO: [FIREBASE_REAL] Buscar do documento do usuário
-    // final doc = await _firestore.collection('users').doc(userId).get();
-    // return doc.data()?['totalCheckins'] ?? 0;
-
-    final user = _mockRanking.firstWhere(
-      (r) => r.id == userId,
-      orElse: () => const RankingModel(id: '', userName: '', totalCheckins: 0),
-    );
-
-    return user.totalCheckins;
+    final data = userDoc.data()!;
+    return {
+      'currentStreak': data['currentStreak'] ?? 0,
+      'maxStreak': data['maxStreak'] ?? 0,
+      'totalCheckins': data['totalCheckins'] ?? 0,
+      'lastCheckinDate': data['lastCheckinDate'],
+    };
   }
 }
