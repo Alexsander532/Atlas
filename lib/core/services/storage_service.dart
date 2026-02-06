@@ -70,6 +70,32 @@ class StorageService {
     return downloadUrl;
   }
 
+  /// Faz upload da foto de perfil.
+  ///
+  /// Salva em: users/{userId}/profile.jpg
+  Future<String> uploadProfileImage({
+    required String userId,
+    File? imageFile,
+    Uint8List? imageBytes,
+  }) async {
+    // Caminho fixo para foto de perfil (substitui a anterior)
+    // users/{userId}/profile.jpg
+    final ref = _storage.ref().child('users/$userId/profile.jpg');
+
+    if (kIsWeb) {
+      if (imageBytes == null) throw Exception('Bytes necessários para web');
+      await ref.putData(
+        imageBytes,
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
+    } else {
+      if (imageFile == null) throw Exception('Arquivo necessário para mobile');
+      await ref.putFile(imageFile, SettableMetadata(contentType: 'image/jpeg'));
+    }
+
+    return await ref.getDownloadURL();
+  }
+
   /// Deleta uma imagem do Storage.
   Future<void> deleteImage(String imageUrl) async {
     try {

@@ -3,15 +3,21 @@
 /// ============================================================================
 ///
 /// Exibe informações do usuário e estatísticas de leitura.
+/// Permite edição de foto de perfil.
 ///
 /// ============================================================================
 
+import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../auth/cubit/auth_cubit.dart';
 import '../../auth/cubit/auth_state.dart';
 import '../services/checkin_service.dart';
+import '../../../core/widgets/image_viewer_page.dart';
 
 /// Página de perfil do usuário.
 class ProfilePage extends StatefulWidget {
@@ -23,8 +29,11 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   final CheckinService _checkinService = CheckinService();
+  final ImagePicker _imagePicker = ImagePicker();
+
   Map<String, dynamic>? _streakData;
-  bool _isLoading = true;
+  bool _isLoadingStats = true;
+  bool _isUploadingPhoto = false;
 
   @override
   void initState() {
@@ -39,10 +48,108 @@ class _ProfilePageState extends State<ProfilePage> {
       if (mounted) {
         setState(() {
           _streakData = data;
-          _isLoading = false;
+          _isLoadingStats = false;
         });
       }
     }
+  }
+
+  Future<void> _pickAndUploadImage(String source) async {
+    try {
+      final ImageSource imageSource = source == 'camera'
+          ? ImageSource.camera
+          : ImageSource.gallery;
+
+      final XFile? pickedFile = await _imagePicker.pickImage(
+        source: imageSource,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+
+      if (pickedFile == null) return;
+
+      setState(() => _isUploadingPhoto = true);
+
+      File? imageFile;
+      Uint8List? imageBytes;
+
+      if (kIsWeb) {
+        imageBytes = await pickedFile.readAsBytes();
+      } else {
+        imageFile = File(pickedFile.path);
+      }
+
+      if (mounted) {
+        await context.read<AuthCubit>().updateProfilePhoto(
+          imageFile: imageFile,
+          imageBytes: imageBytes,
+        );
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Foto de perfil atualizada! 📸'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao atualizar foto: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingPhoto = false);
+      }
+    }
+  }
+
+  void _showImageOptions() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Tirar foto'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickAndUploadImage('camera');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Escolher da galeria'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickAndUploadImage('gallery');
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openImageViewer(String? photoUrl) {
+    if (photoUrl == null) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            ImageViewerPage(imageUrl: photoUrl, tag: 'profile_photo'),
+      ),
+    );
   }
 
   void _onLogout() {
@@ -90,16 +197,66 @@ class _ProfilePageState extends State<ProfilePage> {
               children: [
                 const SizedBox(height: 24),
 
-                // ====== AVATAR ======
-                CircleAvatar(
-                  radius: 50,
-                  backgroundColor: colorScheme.primaryContainer,
-                  child: Text(
-                    user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-                    style: theme.textTheme.displaySmall?.copyWith(
-                      color: colorScheme.onPrimaryContainer,
-                      fontWeight: FontWeight.bold,
-                    ),
+                // ====== HEADER / AVATAR ======
+                Center(
+                  child: Stack(
+                    children: [
+                      // Avatar
+                      GestureDetector(
+                        onTap: () => _openImageViewer(user.photoUrl),
+                        child: Hero(
+                          tag: 'profile_photo',
+                          child: CircleAvatar(
+                            radius: 60,
+                            backgroundColor: colorScheme.primaryContainer,
+                            backgroundImage: user.photoUrl != null
+                                ? NetworkImage(user.photoUrl!)
+                                : null,
+                            child: user.photoUrl == null
+                                ? Text(
+                                    user.name.isNotEmpty
+                                        ? user.name[0].toUpperCase()
+                                        : '?',
+                                    style: theme.textTheme.displayMedium
+                                        ?.copyWith(
+                                          color: colorScheme.onPrimaryContainer,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                  )
+                                : null,
+                          ),
+                        ),
+                      ),
+
+                      // Loading Overlay
+                      if (_isUploadingPhoto)
+                        const Positioned.fill(
+                          child: CircularProgressIndicator(),
+                        ),
+
+                      // Edit Button
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Material(
+                          color: colorScheme.primary,
+                          shape: const CircleBorder(),
+                          elevation: 4,
+                          child: InkWell(
+                            onTap: _showImageOptions,
+                            customBorder: const CircleBorder(),
+                            child: Padding(
+                              padding: const EdgeInsets.all(8),
+                              child: Icon(
+                                Icons.camera_alt,
+                                size: 20,
+                                color: colorScheme.onPrimary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -123,7 +280,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 const SizedBox(height: 32),
 
                 // ====== ESTATÍSTICAS ======
-                if (_isLoading)
+                if (_isLoadingStats)
                   const CircularProgressIndicator()
                 else if (_streakData != null)
                   _buildStatsSection(theme, colorScheme),

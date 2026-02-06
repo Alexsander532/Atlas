@@ -20,6 +20,9 @@
 ///
 /// ============================================================================
 
+import 'dart:io';
+import 'dart:typed_data';
+
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 
@@ -110,6 +113,17 @@ class AuthRepository {
   ///
   /// Retorna null se não houver usuário logado.
   UserModel? get currentUser => _authService.currentUser;
+
+  /// Atualiza a foto de perfil.
+  Future<UserModel> updateProfilePhoto({
+    File? imageFile,
+    Uint8List? imageBytes,
+  }) async {
+    return await _authService.updateProfilePhoto(
+      imageFile: imageFile,
+      imageBytes: imageBytes,
+    );
+  }
 
   /// Verifica se há um usuário autenticado.
   bool get isAuthenticated => _authService.isAuthenticated;

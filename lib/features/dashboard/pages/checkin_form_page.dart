@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../services/checkin_service.dart';
+import '../../../core/widgets/image_viewer_page.dart';
 
 /// Página do formulário de check-in.
 class CheckinFormPage extends StatefulWidget {
@@ -122,8 +123,11 @@ class _CheckinFormPageState extends State<CheckinFormPage> {
     // Valida formulário
     if (!_formKey.currentState!.validate()) return;
 
-    // Foto agora é opcional / em breve
-    // if (_imageFile == null && _imageBytes == null) { ... }
+    // TODO: Se quiser obrigar foto, descomente abaixo
+    // if (_imageFile == null && _imageBytes == null) {
+    //   setState(() => _errorMessage = 'A foto da leitura é obrigatória');
+    //   return;
+    // }
 
     setState(() {
       _isLoading = true;
@@ -242,7 +246,7 @@ class _CheckinFormPageState extends State<CheckinFormPage> {
               ),
               const SizedBox(height: 24),
 
-              // ====== SELETOR DE FOTO (OPCIONAL/EM BREVE) ======
+              // ====== SELETOR DE FOTO ======
               Row(
                 children: [
                   Text(
@@ -251,46 +255,25 @@ class _CheckinFormPageState extends State<CheckinFormPage> {
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: colorScheme.secondaryContainer,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      'Em breve',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: colorScheme.onSecondaryContainer,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
                 ],
               ),
               const SizedBox(height: 8),
 
               // Preview da imagem ou botão de adicionar
-              Opacity(
-                opacity: 0.6, // Indica que é "em breve" ou secundário
-                child: GestureDetector(
-                  onTap: _showImageSourceOptions,
-                  child: Container(
-                    height: 150, // Menor que antes
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: colorScheme.outline.withOpacity(0.5),
-                        width: 2,
-                        strokeAlign: BorderSide.strokeAlignInside,
-                      ),
+              GestureDetector(
+                onTap: _showImageSourceOptions,
+                child: Container(
+                  height: 200,
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: colorScheme.outline.withOpacity(0.5),
+                      width: 2,
+                      strokeAlign: BorderSide.strokeAlignInside,
                     ),
-                    child: _buildImagePreview(colorScheme),
                   ),
+                  child: _buildImagePreview(colorScheme),
                 ),
               ),
               const SizedBox(height: 8),
@@ -349,51 +332,82 @@ class _CheckinFormPageState extends State<CheckinFormPage> {
     );
   }
 
+  /// Abre visualizador de imagem.
+  void _openImageViewer() {
+    if (_imageFile == null && _imageBytes == null) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ImageViewerPage(
+          imageFile: _imageFile,
+          imageBytes: _imageBytes,
+          tag: 'checkin_photo',
+        ),
+      ),
+    );
+  }
+
   /// Constrói o preview da imagem ou placeholder.
   Widget _buildImagePreview(ColorScheme colorScheme) {
     if (_imageBytes != null) {
       // Web: mostra a partir dos bytes
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Image.memory(_imageBytes!, fit: BoxFit.cover),
-            _buildImageOverlay(colorScheme),
-          ],
+      return GestureDetector(
+        onTap: _openImageViewer,
+        child: Hero(
+          tag: 'checkin_photo',
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Image.memory(_imageBytes!, fit: BoxFit.cover),
+                _buildImageOverlay(colorScheme),
+              ],
+            ),
+          ),
         ),
       );
     } else if (_imageFile != null) {
       // Mobile: mostra a partir do arquivo
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Image.file(_imageFile!, fit: BoxFit.cover),
-            _buildImageOverlay(colorScheme),
-          ],
+      return GestureDetector(
+        onTap: _openImageViewer,
+        child: Hero(
+          tag: 'checkin_photo',
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Image.file(_imageFile!, fit: BoxFit.cover),
+                _buildImageOverlay(colorScheme),
+              ],
+            ),
+          ),
         ),
       );
     } else {
       // Placeholder
-      return Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.add_a_photo,
-            size: 48,
-            color: colorScheme.primary.withOpacity(0.5),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Adicionar foto (Opcional)',
-            style: TextStyle(
+      return GestureDetector(
+        onTap: _showImageSourceOptions,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.add_a_photo,
+              size: 48,
               color: colorScheme.primary.withOpacity(0.5),
-              fontWeight: FontWeight.w500,
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              'Toque para adicionar uma foto',
+              style: TextStyle(
+                color: colorScheme.primary.withOpacity(0.5),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
       );
     }
   }
@@ -403,25 +417,28 @@ class _CheckinFormPageState extends State<CheckinFormPage> {
     return Positioned(
       bottom: 8,
       right: 8,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: colorScheme.surface.withOpacity(0.9),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.edit, size: 16, color: colorScheme.primary),
-            const SizedBox(width: 4),
-            Text(
-              'Trocar',
-              style: TextStyle(
-                color: colorScheme.primary,
-                fontWeight: FontWeight.w500,
+      child: GestureDetector(
+        onTap: _showImageSourceOptions,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: colorScheme.surface.withOpacity(0.9),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.edit, size: 16, color: colorScheme.primary),
+              const SizedBox(width: 4),
+              Text(
+                'Trocar',
+                style: TextStyle(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

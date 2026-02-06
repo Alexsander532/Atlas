@@ -18,11 +18,14 @@
 ///
 /// ============================================================================
 
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
-import '../models/user_model.dart';
+import '../../../core/services/storage_service.dart';
+import '../../auth/models/user_model.dart';
 
 /// Exceção customizada para erros de autenticação.
 ///
@@ -260,6 +263,46 @@ class AuthService {
   ///
   /// Útil para reagir a login/logout em tempo real.
   Stream<User?> get authStateChanges => _firebaseAuth.authStateChanges();
+
+  // ============================================================
+  // PERFIL
+  // ============================================================
+
+  /// Atualiza a foto de perfil do usuário.
+  ///
+  /// 1. Upload da imagem para Storage
+  /// 2. Atualiza photoURL no Auth
+  /// 3. Atualiza photoUrl no Firestore
+  Future<UserModel> updateProfilePhoto({
+    required File? imageFile,
+    required Uint8List? imageBytes,
+  }) async {
+    final user = _firebaseAuth.currentUser;
+    if (user == null) throw const AuthException('Usuário não autenticado');
+
+    try {
+      // 1. Upload
+      final storageService = StorageService(); // Instância direta ou injetada
+      final photoUrl = await storageService.uploadProfileImage(
+        userId: user.uid,
+        imageFile: imageFile,
+        imageBytes: imageBytes,
+      );
+
+      // 2. Auth Update
+      await user.updatePhotoURL(photoUrl);
+
+      // 3. Firestore Update
+      await _firestore.collection('users').doc(user.uid).update({
+        'photoUrl': photoUrl,
+      });
+
+      // Retorna usuário atualizado
+      return await _fetchUserDetails(user);
+    } catch (e) {
+      throw AuthException('Erro ao atualizar foto: $e');
+    }
+  }
 
   // ============================================================
   // HELPERS

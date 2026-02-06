@@ -29,6 +29,8 @@
 ///
 /// ============================================================================
 
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../repositories/auth_repository.dart';
 import '../services/auth_service.dart';
@@ -222,6 +224,32 @@ class AuthCubit extends Cubit<AuthState> {
   /// Útil para limpar erros e permitir nova tentativa.
   void resetState() {
     emit(const AuthInitial());
+  }
+
+  /// Atualiza a foto de perfil.
+  Future<void> updateProfilePhoto({
+    File? imageFile,
+    Uint8List? imageBytes,
+  }) async {
+    // Mantém o estado atual se possível, ou emite loading
+    // Idealmente, poderíamos ter um estado AuthUpdatingProfile, mas AuthLoading serve
+    // Se quisermos não bloquear a UI inteira, teríamos que gerenciar o loading localmente na Page.
+    // Como o Cubit controla o estado global, o loading aqui pode afetar tudo.
+    // Vamos assumir que a Page gerencia o feedback visual de loading específico,
+    // mas chamaremos o Cubit para a op.
+    // PORÉM, o Cubit emite estados. Se emitirmos AuthLoading, a tela de perfil pode recarregar.
+
+    try {
+      final updatedUser = await _authRepository.updateProfilePhoto(
+        imageFile: imageFile,
+        imageBytes: imageBytes,
+      );
+      emit(AuthAuthenticated(updatedUser));
+    } on AuthException catch (e) {
+      emit(AuthError(e.message, code: e.code));
+    } catch (e) {
+      emit(const AuthError('Erro ao atualizar foto.'));
+    }
   }
 
   // ============================================================
