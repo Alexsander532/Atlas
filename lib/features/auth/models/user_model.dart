@@ -45,12 +45,16 @@ class UserModel extends Equatable {
   /// URL da foto de perfil.
   final String? photoUrl;
 
+  /// ID do grupo atualmente ativo/selecionado.
+  final String? activeGroupId;
+
   const UserModel({
     required this.id,
     required this.email,
     required this.name,
     this.createdAt,
     this.photoUrl,
+    this.activeGroupId,
   });
 
   /// Cria um UserModel a partir de um Map (JSON/Firestore).
@@ -71,6 +75,7 @@ class UserModel extends Equatable {
       name: map['name'] as String? ?? '',
       photoUrl: map['photoUrl'] as String?,
       createdAt: createdAt,
+      activeGroupId: map['activeGroupId'] as String?,
     );
   }
 
@@ -81,6 +86,7 @@ class UserModel extends Equatable {
       'name': name,
       'photoUrl': photoUrl,
       'createdAt': createdAt?.toIso8601String(),
+      'activeGroupId': activeGroupId,
     };
   }
 
@@ -91,6 +97,7 @@ class UserModel extends Equatable {
     String? name,
     String? photoUrl,
     DateTime? createdAt,
+    String? activeGroupId,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -98,6 +105,7 @@ class UserModel extends Equatable {
       name: name ?? this.name,
       photoUrl: photoUrl ?? this.photoUrl,
       createdAt: createdAt ?? this.createdAt,
+      activeGroupId: activeGroupId ?? this.activeGroupId,
     );
   }
 
@@ -105,7 +113,14 @@ class UserModel extends Equatable {
   ///
   /// Equatable usa esta lista para determinar se dois objetos são iguais.
   @override
-  List<Object?> get props => [id, email, name, photoUrl, createdAt];
+  List<Object?> get props => [
+    id,
+    email,
+    name,
+    photoUrl,
+    createdAt,
+    activeGroupId,
+  ];
 
   @override
   String toString() {

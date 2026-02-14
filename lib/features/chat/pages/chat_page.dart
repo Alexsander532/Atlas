@@ -22,7 +22,9 @@ import '../widgets/typing_indicator.dart';
 
 /// Página principal do chat em grupo.
 class ChatPage extends StatefulWidget {
-  const ChatPage({super.key});
+  final String groupId;
+
+  const ChatPage({super.key, required this.groupId});
 
   @override
   State<ChatPage> createState() => _ChatPageState();
@@ -60,6 +62,7 @@ class _ChatPageState extends State<ChatPage> {
         userId: authState.user.id,
         userName: authState.user.name,
         isTyping: true,
+        groupId: widget.groupId,
       );
     }
 
@@ -71,6 +74,7 @@ class _ChatPageState extends State<ChatPage> {
           userId: authState.user.id,
           userName: authState.user.name,
           isTyping: false,
+          groupId: widget.groupId,
         );
       }
     });
@@ -89,6 +93,7 @@ class _ChatPageState extends State<ChatPage> {
       userName: authState.user.name,
       userPhotoUrl: authState.user.photoUrl,
       text: text,
+      groupId: widget.groupId,
     );
 
     // Limpa estado de digitando ao enviar
@@ -98,6 +103,7 @@ class _ChatPageState extends State<ChatPage> {
       userId: authState.user.id,
       userName: authState.user.name,
       isTyping: false,
+      groupId: widget.groupId,
     );
 
     _messageController.clear();
@@ -251,7 +257,7 @@ class _ChatPageState extends State<ChatPage> {
         // ====== LISTA DE MENSAGENS ======
         Expanded(
           child: StreamBuilder<List<MessageModel>>(
-            stream: _chatService.getMessagesStream(),
+            stream: _chatService.getMessagesStream(groupId: widget.groupId),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
@@ -333,7 +339,10 @@ class _ChatPageState extends State<ChatPage> {
         // STREAM DE DIGITANDO
         if (currentUserId.isNotEmpty)
           StreamBuilder<List<String>>(
-            stream: _chatService.getTypingUsersStream(currentUserId),
+            stream: _chatService.getTypingUsersStream(
+              currentUserId,
+              groupId: widget.groupId,
+            ),
             builder: (context, typingSnapshot) {
               if (!typingSnapshot.hasData || typingSnapshot.data!.isEmpty) {
                 return const SizedBox.shrink();

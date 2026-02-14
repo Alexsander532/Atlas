@@ -19,11 +19,18 @@ import '../services/checkin_service.dart';
 import '../services/ranking_service.dart';
 import 'checkin_form_page.dart';
 import '../../chat/pages/chat_page.dart';
+import 'history_page.dart';
+
 import 'profile_page.dart';
+import '../../groups/services/group_service.dart';
+import '../../groups/models/group_model.dart';
+import '../../groups/widgets/invite_share_widget.dart';
 
 /// Página principal do Dashboard.
 class DashboardPage extends StatefulWidget {
-  const DashboardPage({super.key});
+  final String groupId;
+
+  const DashboardPage({super.key, required this.groupId});
 
   @override
   State<DashboardPage> createState() => _DashboardPageState();
@@ -41,12 +48,15 @@ class _DashboardPageState extends State<DashboardPage> {
 
   // Serviços
   final CheckinService _checkinService = CheckinService();
+
   final RankingService _rankingService = RankingService();
+  final GroupService _groupService = GroupService();
 
   // Dados
   bool _hasCheckedInToday = false;
-  Map<String, dynamic>? _streakData;
+  int _userScore = 0;
   List<RankingItem> _ranking = [];
+  GroupModel? _activeGroup;
   bool _isLoading = true;
 
   @override
@@ -63,17 +73,25 @@ class _DashboardPageState extends State<DashboardPage> {
       try {
         final hasChecked = await _checkinService.hasCheckedInToday(
           authState.user.id,
+          groupId: widget.groupId,
         );
-        final streakData = await _checkinService.getUserStreakData(
+        final userScore = await _checkinService.getUserScore(
           authState.user.id,
+          groupId: widget.groupId,
         );
-        final ranking = await _rankingService.getRanking(limit: 20);
+        final ranking = await _rankingService.getRanking(
+          groupId: widget.groupId,
+          limit: 20,
+        );
+
+        final group = await _groupService.getGroupById(widget.groupId);
 
         if (mounted) {
           setState(() {
             _hasCheckedInToday = hasChecked;
-            _streakData = streakData;
+            _userScore = userScore;
             _ranking = ranking;
+            _activeGroup = group;
             _isLoading = false;
           });
         }
@@ -106,6 +124,11 @@ class _DashboardPageState extends State<DashboardPage> {
       label: 'Chat',
     ),
     NavigationItem(
+      icon: Icons.calendar_month_outlined,
+      selectedIcon: Icons.calendar_month,
+      label: 'Histórico',
+    ),
+    NavigationItem(
       icon: Icons.person_outline,
       selectedIcon: Icons.person,
       label: 'Perfil',
@@ -123,6 +146,7 @@ class _DashboardPageState extends State<DashboardPage> {
         builder: (context) => CheckinFormPage(
           userId: authState.user.id,
           userName: authState.user.name,
+          groupId: widget.groupId,
           onSuccess: () {
             _loadData(); // Recarrega os dados após check-in
           },
@@ -371,6 +395,8 @@ class _DashboardPageState extends State<DashboardPage> {
       case 2:
         return 'Chat';
       case 3:
+        return 'Histórico';
+      case 4:
         return 'Perfil';
       default:
         return 'Atlas';
@@ -384,8 +410,10 @@ class _DashboardPageState extends State<DashboardPage> {
       case 1:
         return _buildRankingContent();
       case 2:
-        return const ChatPage();
+        return ChatPage(groupId: widget.groupId);
       case 3:
+        return HistoryPage(groupId: widget.groupId);
+      case 4:
         return const ProfilePage();
       default:
         return _buildHomeContent();
@@ -440,12 +468,21 @@ class _DashboardPageState extends State<DashboardPage> {
             ),
             const SizedBox(height: 24),
 
+            // ====== CONVITE DO GRUPO ======
+            if (_activeGroup != null) ...[
+              InviteShareWidget(
+                inviteCode: _activeGroup!.inviteCode,
+                groupName: _activeGroup!.name,
+              ),
+              const SizedBox(height: 24),
+            ],
+
             // ====== CARD DE CHECK-IN ======
             _buildCheckinCard(theme, colorScheme),
             const SizedBox(height: 16),
 
             // ====== ESTATÍSTICAS RÁPIDAS ======
-            if (_streakData != null) _buildStatsRow(theme, colorScheme),
+            _buildStatsRow(theme, colorScheme),
             const SizedBox(height: 16),
 
             // ====== MINI RANKING ======
@@ -525,27 +562,18 @@ class _DashboardPageState extends State<DashboardPage> {
       children: [
         Expanded(
           child: _buildStatCard(
-            icon: Icons.local_fire_department,
-            value: '${_streakData!['currentStreak']}',
-            label: 'Sequência',
+            icon: Icons.star,
+            value: '$_userScore',
+            label: 'Pontos',
             color: Colors.orange,
           ),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: _buildStatCard(
-            icon: Icons.emoji_events,
-            value: '${_streakData!['maxStreak']}',
-            label: 'Recorde',
-            color: Colors.amber,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildStatCard(
             icon: Icons.check_circle,
-            value: '${_streakData!['totalCheckins']}',
-            label: 'Total',
+            value: '$_userScore',
+            label: 'Check-ins',
             color: Colors.green,
           ),
         ),
@@ -658,14 +686,10 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
           Row(
             children: [
-              const Icon(
-                Icons.local_fire_department,
-                size: 16,
-                color: Colors.orange,
-              ),
+              const Icon(Icons.star, size: 16, color: Colors.orange),
               const SizedBox(width: 4),
               Text(
-                '${item.currentStreak}',
+                '${item.totalCheckins}',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ],
@@ -768,10 +792,10 @@ class _DashboardPageState extends State<DashboardPage> {
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.local_fire_department, color: Colors.orange),
+                  const Icon(Icons.star, color: Colors.orange),
                   const SizedBox(width: 4),
                   Text(
-                    '${item.currentStreak}',
+                    '${item.totalCheckins}',
                     style: theme.textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: Colors.orange,

@@ -31,25 +31,35 @@ class _ProfilePageState extends State<ProfilePage> {
   final CheckinService _checkinService = CheckinService();
   final ImagePicker _imagePicker = ImagePicker();
 
-  Map<String, dynamic>? _streakData;
+  int _totalCheckins = 0;
   bool _isLoadingStats = true;
   bool _isUploadingPhoto = false;
 
   @override
   void initState() {
     super.initState();
-    _loadStreakData();
+    _loadUserStats();
   }
 
-  Future<void> _loadStreakData() async {
+  Future<void> _loadUserStats() async {
     final authState = context.read<AuthCubit>().state;
     if (authState is AuthAuthenticated) {
-      final data = await _checkinService.getUserStreakData(authState.user.id);
-      if (mounted) {
-        setState(() {
-          _streakData = data;
-          _isLoadingStats = false;
-        });
+      final groupId = authState.user.activeGroupId;
+      if (groupId != null && groupId.isNotEmpty) {
+        final score = await _checkinService.getUserScore(
+          authState.user.id,
+          groupId: groupId,
+        );
+        if (mounted) {
+          setState(() {
+            _totalCheckins = score;
+            _isLoadingStats = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() => _isLoadingStats = false);
+        }
       }
     }
   }
@@ -189,7 +199,7 @@ class _ProfilePageState extends State<ProfilePage> {
         final user = state.user;
 
         return RefreshIndicator(
-          onRefresh: _loadStreakData,
+          onRefresh: _loadUserStats,
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16),
@@ -282,7 +292,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 // ====== ESTATÍSTICAS ======
                 if (_isLoadingStats)
                   const CircularProgressIndicator()
-                else if (_streakData != null)
+                else
                   _buildStatsSection(theme, colorScheme),
 
                 const SizedBox(height: 32),
@@ -318,20 +328,14 @@ class _ProfilePageState extends State<ProfilePage> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildStatItem(
-                  icon: Icons.local_fire_department,
-                  value: '${_streakData!['currentStreak']}',
-                  label: 'Sequência\nAtual',
+                  icon: Icons.star,
+                  value: '$_totalCheckins',
+                  label: 'Pontos\nTotais',
                   color: Colors.orange,
                 ),
                 _buildStatItem(
-                  icon: Icons.emoji_events,
-                  value: '${_streakData!['maxStreak']}',
-                  label: 'Maior\nSequência',
-                  color: Colors.amber,
-                ),
-                _buildStatItem(
                   icon: Icons.check_circle,
-                  value: '${_streakData!['totalCheckins']}',
+                  value: '$_totalCheckins',
                   label: 'Total de\nCheck-ins',
                   color: Colors.green,
                 ),

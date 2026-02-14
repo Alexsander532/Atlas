@@ -1,12 +1,13 @@
 /// ============================================================================
-/// CHAT SERVICE - Serviço de Chat com Firestore
+/// CHAT SERVICE - Serviço de Chat com Firestore (por Grupo)
 /// ============================================================================
 ///
-/// Gerencia operações CRUD de mensagens no Firestore.
+/// Gerencia operações CRUD de mensagens no Firestore,
+/// filtradas por grupo.
 ///
 /// Funcionalidades:
-/// - Stream de mensagens em tempo real
-/// - Enviar mensagem
+/// - Stream de mensagens em tempo real (por grupo)
+/// - Enviar mensagem (com groupId)
 /// - Editar mensagem (apenas autor)
 /// - Excluir mensagem (apenas autor)
 ///
@@ -23,9 +24,10 @@ class ChatService {
   CollectionReference get _messagesCollection =>
       _firestore.collection('messages');
 
-  /// Stream de mensagens ordenadas por data (mais recentes por último).
-  Stream<List<MessageModel>> getMessagesStream() {
+  /// Stream de mensagens ordenadas por data (por grupo).
+  Stream<List<MessageModel>> getMessagesStream({required String groupId}) {
     return _messagesCollection
+        .where('groupId', isEqualTo: groupId)
         .orderBy('createdAt', descending: false)
         .snapshots()
         .map((snapshot) {
@@ -41,6 +43,7 @@ class ChatService {
     required String userName,
     required String text,
     String? userPhotoUrl,
+    required String groupId,
   }) async {
     if (text.trim().isEmpty) return;
 
@@ -52,6 +55,7 @@ class ChatService {
       'userPhotoUrl': userPhotoUrl,
       'editedAt': null,
       'isDeleted': false,
+      'groupId': groupId,
     });
   }
 
@@ -77,18 +81,20 @@ class ChatService {
   }
 
   /// Define o status de "digitando" do usuário.
-  ///
-  /// Salva um documento temporário na coleção 'typing_status'.
   Future<void> setTypingStatus({
     required String userId,
     required String userName,
     required bool isTyping,
+    required String groupId,
   }) async {
-    final docRef = _firestore.collection('typing_status').doc(userId);
+    final docRef = _firestore
+        .collection('typing_status')
+        .doc('${groupId}_$userId');
 
     if (isTyping) {
       await docRef.set({
         'userName': userName,
+        'groupId': groupId,
         'lastTypedAt': FieldValue.serverTimestamp(),
       });
     } else {
@@ -96,15 +102,20 @@ class ChatService {
     }
   }
 
-  /// Stream de usuários que estão digitando.
-  ///
-  /// Filtra pelo userId para não mostrar o próprio usuário.
-  Stream<List<String>> getTypingUsersStream(String currentUserId) {
-    return _firestore.collection('typing_status').snapshots().map((snapshot) {
-      return snapshot.docs
-          .where((doc) => doc.id != currentUserId)
-          .map((doc) => doc['userName'] as String)
-          .toList();
-    });
+  /// Stream de usuários que estão digitando (no grupo).
+  Stream<List<String>> getTypingUsersStream(
+    String currentUserId, {
+    required String groupId,
+  }) {
+    return _firestore
+        .collection('typing_status')
+        .where('groupId', isEqualTo: groupId)
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs
+              .where((doc) => !doc.id.endsWith('_$currentUserId'))
+              .map((doc) => doc['userName'] as String)
+              .toList();
+        });
   }
 }

@@ -18,6 +18,7 @@ class MessageModel {
   final DateTime createdAt;
   final DateTime? editedAt;
   final bool isDeleted;
+  final String groupId;
 
   MessageModel({
     required this.id,
@@ -28,6 +29,7 @@ class MessageModel {
     this.userPhotoUrl,
     this.editedAt,
     this.isDeleted = false,
+    required this.groupId,
   });
 
   /// Cria a partir de um documento Firestore.
@@ -42,6 +44,7 @@ class MessageModel {
       userPhotoUrl: data['userPhotoUrl'],
       editedAt: (data['editedAt'] as Timestamp?)?.toDate(),
       isDeleted: data['isDeleted'] ?? false,
+      groupId: data['groupId'] ?? '',
     );
   }
 
@@ -55,6 +58,7 @@ class MessageModel {
       'userPhotoUrl': userPhotoUrl,
       'editedAt': editedAt != null ? Timestamp.fromDate(editedAt!) : null,
       'isDeleted': isDeleted,
+      'groupId': groupId,
     };
   }
 
@@ -68,6 +72,7 @@ class MessageModel {
     String? userPhotoUrl,
     DateTime? editedAt,
     bool? isDeleted,
+    String? groupId,
   }) {
     return MessageModel(
       id: id ?? this.id,
@@ -78,6 +83,7 @@ class MessageModel {
       userPhotoUrl: userPhotoUrl ?? this.userPhotoUrl,
       editedAt: editedAt ?? this.editedAt,
       isDeleted: isDeleted ?? this.isDeleted,
+      groupId: groupId ?? this.groupId,
     );
   }
 }

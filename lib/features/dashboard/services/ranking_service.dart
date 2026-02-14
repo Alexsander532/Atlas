@@ -1,8 +1,11 @@
 /// ============================================================================
-/// RANKING SERVICE - Serviço de Ranking
+/// RANKING SERVICE - Serviço de Ranking por Grupo
 /// ============================================================================
 ///
-/// Busca e ordena os usuários por streak para o ranking.
+/// Busca e ordena os membros por total de check-ins no desafio.
+///
+/// Pontuação: 1 check-in/dia = 1 ponto (máx 1 por dia).
+/// Ranking = total de pontos no período do desafio.
 ///
 /// ============================================================================
 
@@ -12,60 +15,117 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class RankingItem {
   final String id;
   final String name;
-  final int currentStreak;
-  final int maxStreak;
   final int totalCheckins;
   final int position;
+  final String? photoUrl;
 
   const RankingItem({
     required this.id,
     required this.name,
-    required this.currentStreak,
-    required this.maxStreak,
     required this.totalCheckins,
     required this.position,
+    this.photoUrl,
   });
 }
 
-/// Serviço de ranking.
+/// Serviço de ranking por grupo.
 class RankingService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  /// Busca o ranking ordenado por currentStreak (decrescente).
+  /// Busca o ranking de um grupo ordenado por total de check-ins.
   ///
-  /// [limit] - Número máximo de usuários a retornar
-  Future<List<RankingItem>> getRanking({int limit = 50}) async {
-    final snapshot = await _firestore
-        .collection('users')
-        .orderBy('currentStreak', descending: true)
-        .orderBy('totalCheckins', descending: true)
-        .limit(limit)
+  /// [groupId] - ID do grupo/desafio
+  /// [limit] - Número máximo de membros a retornar
+  Future<List<RankingItem>> getRanking({
+    required String groupId,
+    int limit = 50,
+  }) async {
+    // 1. Busca o grupo para pegar os memberIds
+    final groupDoc = await _firestore.collection('groups').doc(groupId).get();
+    if (!groupDoc.exists) return [];
+
+    final memberIds = List<String>.from(groupDoc.data()?['memberIds'] ?? []);
+    if (memberIds.isEmpty) return [];
+
+    // 2. Busca todos os check-ins do grupo
+    final checkinsSnapshot = await _firestore
+        .collection('checkins')
+        .where('groupId', isEqualTo: groupId)
         .get();
 
-    final ranking = <RankingItem>[];
-    int position = 1;
+    // 3. Conta check-ins por usuário
+    final Map<String, int> scoreCounts = {};
+    final Map<String, String> userNames = {};
 
-    for (final doc in snapshot.docs) {
+    for (final doc in checkinsSnapshot.docs) {
       final data = doc.data();
-      ranking.add(
-        RankingItem(
-          id: doc.id,
-          name: data['name'] ?? 'Usuário',
-          currentStreak: data['currentStreak'] ?? 0,
-          maxStreak: data['maxStreak'] ?? 0,
-          totalCheckins: data['totalCheckins'] ?? 0,
-          position: position,
-        ),
-      );
-      position++;
+      final uId = data['userId'] as String? ?? '';
+      final uName = data['userName'] as String? ?? 'Usuário';
+
+      scoreCounts[uId] = (scoreCounts[uId] ?? 0) + 1;
+      userNames[uId] = uName;
     }
 
-    return ranking;
+    // 4. Busca dados dos usuários (para n omes e fotos de quem não tem check-in)
+    final usersSnapshot = await _firestore
+        .collection('users')
+        .where(FieldPath.documentId, whereIn: memberIds.take(10).toList())
+        .get();
+
+    final Map<String, Map<String, dynamic>> usersData = {};
+    for (final doc in usersSnapshot.docs) {
+      usersData[doc.id] = doc.data();
+    }
+
+    // Se tiver mais de 10 membros, busca em batches
+    if (memberIds.length > 10) {
+      for (var i = 10; i < memberIds.length; i += 10) {
+        final batch = memberIds.skip(i).take(10).toList();
+        final batchSnapshot = await _firestore
+            .collection('users')
+            .where(FieldPath.documentId, whereIn: batch)
+            .get();
+        for (final doc in batchSnapshot.docs) {
+          usersData[doc.id] = doc.data();
+        }
+      }
+    }
+
+    // 5. Constroi lista de ranking
+    final ranking = memberIds.map((memberId) {
+      final userData = usersData[memberId];
+      return RankingItem(
+        id: memberId,
+        name: userNames[memberId] ?? userData?['name'] ?? 'Usuário',
+        totalCheckins: scoreCounts[memberId] ?? 0,
+        position: 0, // Será definido após ordenação
+        photoUrl: userData?['photoUrl'],
+      );
+    }).toList();
+
+    // 6. Ordena por total de check-ins (descrescente)
+    ranking.sort((a, b) => b.totalCheckins.compareTo(a.totalCheckins));
+
+    // 7. Aplica posições e limite
+    final positioned = <RankingItem>[];
+    for (int i = 0; i < ranking.length && i < limit; i++) {
+      positioned.add(
+        RankingItem(
+          id: ranking[i].id,
+          name: ranking[i].name,
+          totalCheckins: ranking[i].totalCheckins,
+          position: i + 1,
+          photoUrl: ranking[i].photoUrl,
+        ),
+      );
+    }
+
+    return positioned;
   }
 
-  /// Busca a posição do usuário no ranking.
-  Future<int> getUserPosition(String userId) async {
-    final ranking = await getRanking(limit: 100);
+  /// Busca a posição do usuário no ranking do grupo.
+  Future<int> getUserPosition(String userId, {required String groupId}) async {
+    final ranking = await getRanking(groupId: groupId, limit: 100);
 
     for (int i = 0; i < ranking.length; i++) {
       if (ranking[i].id == userId) {
@@ -73,37 +133,6 @@ class RankingService {
       }
     }
 
-    return ranking.length + 1; // Se não encontrado, está no final
-  }
-
-  /// Stream do ranking em tempo real.
-  Stream<List<RankingItem>> watchRanking({int limit = 50}) {
-    return _firestore
-        .collection('users')
-        .orderBy('currentStreak', descending: true)
-        .orderBy('totalCheckins', descending: true)
-        .limit(limit)
-        .snapshots()
-        .map((snapshot) {
-          final ranking = <RankingItem>[];
-          int position = 1;
-
-          for (final doc in snapshot.docs) {
-            final data = doc.data();
-            ranking.add(
-              RankingItem(
-                id: doc.id,
-                name: data['name'] ?? 'Usuário',
-                currentStreak: data['currentStreak'] ?? 0,
-                maxStreak: data['maxStreak'] ?? 0,
-                totalCheckins: data['totalCheckins'] ?? 0,
-                position: position,
-              ),
-            );
-            position++;
-          }
-
-          return ranking;
-        });
+    return ranking.length + 1;
   }
 }

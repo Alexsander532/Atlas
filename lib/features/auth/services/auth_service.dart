@@ -136,11 +136,13 @@ class AuthService {
     String userName = user.displayName ?? '';
     DateTime? createdAt;
     String? photoUrl = user.photoURL;
+    String? activeGroupId;
 
     if (userDoc.exists) {
       final data = userDoc.data();
       userName = data?['name'] ?? userName;
       photoUrl = data?['photoUrl'] ?? photoUrl;
+      activeGroupId = data?['activeGroupId'] as String?;
 
       if (data?['createdAt'] != null) {
         createdAt = (data!['createdAt'] as Timestamp).toDate();
@@ -153,6 +155,7 @@ class AuthService {
       name: userName,
       createdAt: createdAt,
       photoUrl: photoUrl,
+      activeGroupId: activeGroupId,
     );
   }
 

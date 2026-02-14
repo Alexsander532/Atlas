@@ -34,6 +34,7 @@ import 'dart:typed_data';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../repositories/auth_repository.dart';
 import '../services/auth_service.dart';
+import '../../../core/services/migration_service.dart'; // Import migração corrigido
 import 'auth_state.dart';
 
 /// Cubit responsável pelo gerenciamento de autenticação.
@@ -63,6 +64,8 @@ class AuthCubit extends Cubit<AuthState> {
       final user = await _authRepository.reloadUser();
       if (user != null) {
         emit(AuthAuthenticated(user));
+        // Trigger migration check
+        MigrationService().runIfNeeded();
       } else {
         emit(const AuthUnauthenticated());
       }
@@ -124,6 +127,9 @@ class AuthCubit extends Cubit<AuthState> {
 
       // Sucesso: emite estado autenticado
       emit(AuthAuthenticated(user));
+
+      // Trigger migration check (now that we have permissions)
+      MigrationService().runIfNeeded();
     } on AuthException catch (e) {
       // Erro conhecido: emite com mensagem traduzida
       emit(AuthError(e.message, code: e.code));
@@ -165,6 +171,9 @@ class AuthCubit extends Cubit<AuthState> {
       );
 
       emit(AuthAuthenticated(user));
+
+      // Trigger migration check
+      MigrationService().runIfNeeded();
     } on AuthException catch (e) {
       emit(AuthError(e.message, code: e.code));
     } catch (e) {

@@ -90,7 +90,12 @@ class _SplashPageState extends State<SplashPage>
     final state = context.read<AuthCubit>().state;
 
     if (state is AuthAuthenticated) {
-      Navigator.pushReplacementNamed(context, '/dashboard');
+      final groupId = state.user.activeGroupId;
+      if (groupId != null && groupId.isNotEmpty) {
+        Navigator.pushReplacementNamed(context, '/dashboard');
+      } else {
+        Navigator.pushReplacementNamed(context, '/groups');
+      }
     } else if (state is AuthUnauthenticated || state is AuthError) {
       Navigator.pushReplacementNamed(context, '/login');
     }

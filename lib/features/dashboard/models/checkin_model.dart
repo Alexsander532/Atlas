@@ -15,6 +15,7 @@ class CheckinModel extends Equatable {
   final String? imageUrl;
   final String date; // Formato: YYYY-MM-DD
   final DateTime createdAt;
+  final String groupId;
 
   const CheckinModel({
     required this.id,
@@ -25,6 +26,7 @@ class CheckinModel extends Equatable {
     this.imageUrl,
     required this.date,
     required this.createdAt,
+    required this.groupId,
   });
 
   /// Cria a partir de um documento do Firestore.
@@ -41,6 +43,7 @@ class CheckinModel extends Equatable {
       createdAt: data['createdAt'] != null
           ? (data['createdAt'] as Timestamp).toDate()
           : DateTime.now(),
+      groupId: data['groupId'] ?? '',
     );
   }
 
@@ -54,9 +57,10 @@ class CheckinModel extends Equatable {
       'imageUrl': imageUrl,
       'date': date,
       'createdAt': Timestamp.fromDate(createdAt),
+      'groupId': groupId,
     };
   }
 
   @override
-  List<Object?> get props => [id, userId, date];
+  List<Object?> get props => [id, userId, date, groupId];
 }

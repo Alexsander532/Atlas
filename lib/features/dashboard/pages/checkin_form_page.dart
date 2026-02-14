@@ -20,12 +20,14 @@ import '../../../core/widgets/image_viewer_page.dart';
 class CheckinFormPage extends StatefulWidget {
   final String userId;
   final String userName;
+  final String groupId;
   final VoidCallback? onSuccess;
 
   const CheckinFormPage({
     super.key,
     required this.userId,
     required this.userName,
+    required this.groupId,
     this.onSuccess,
   });
 
@@ -144,6 +146,7 @@ class _CheckinFormPageState extends State<CheckinFormPage> {
             : _descriptionController.text,
         imageFile: _imageFile,
         imageBytes: _imageBytes,
+        groupId: widget.groupId,
       );
 
       if (mounted) {

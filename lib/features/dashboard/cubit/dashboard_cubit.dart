@@ -3,9 +3,9 @@
 /// ============================================================================
 ///
 /// Gerencia o estado do Dashboard incluindo:
-/// - Check-in diário
-/// - Ranking de usuários
-/// - Histórico de atividades
+/// - Check-in diário (por grupo)
+/// - Ranking de usuários (por grupo)
+/// - Histórico de atividades (por grupo)
 ///
 /// ============================================================================
 library dashboard_cubit;
@@ -28,16 +28,21 @@ class DashboardCubit extends Cubit<DashboardState> {
   /// Nome do usuário logado
   final String _userName;
 
+  /// ID do grupo ativo
+  final String _groupId;
+
   /// Construtor do DashboardCubit.
   ///
-  /// Recebe o repositório e dados do usuário logado.
+  /// Recebe o repositório, dados do usuário logado e o groupId ativo.
   DashboardCubit({
     required CheckinRepository checkinRepository,
     required String userId,
     required String userName,
+    required String groupId,
   }) : _checkinRepository = checkinRepository,
        _userId = userId,
        _userName = userName,
+       _groupId = groupId,
        super(const DashboardInitial());
 
   // ============================================================
@@ -53,20 +58,18 @@ class DashboardCubit extends Cubit<DashboardState> {
     try {
       // Carrega dados em paralelo para performance
       final results = await Future.wait([
-        _checkinRepository.hasCheckinToday(_userId),
-        _checkinRepository.fetchRanking(limit: 10),
-        _checkinRepository.fetchHistory(_userId, limit: 7),
-        _checkinRepository.getStreakData(_userId),
+        _checkinRepository.hasCheckinToday(_userId, groupId: _groupId),
+        _checkinRepository.fetchRanking(limit: 10, groupId: _groupId),
+        _checkinRepository.fetchHistory(_userId, limit: 7, groupId: _groupId),
+        _checkinRepository.getUserScore(_userId, groupId: _groupId),
       ]);
-
-      final streakData = results[3] as Map<String, dynamic>;
 
       emit(
         DashboardLoaded(
           hasCheckedInToday: results[0] as bool,
           ranking: (results[1] as List).cast<RankingItem>(),
           recentActivity: (results[2] as List).cast<CheckinModel>(),
-          totalCheckins: streakData['totalCheckins'] as int,
+          totalCheckins: results[3] as int,
           userName: _userName,
         ),
       );

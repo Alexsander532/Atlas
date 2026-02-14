@@ -31,6 +31,7 @@ import 'features/splash/pages/splash_page.dart';
 import 'features/dashboard/cubit/dashboard_cubit.dart';
 import 'features/dashboard/pages/dashboard_page.dart';
 import 'features/dashboard/repositories/checkin_repository.dart';
+import 'features/groups/pages/groups_page.dart';
 
 /// Widget principal do aplicativo.
 ///
@@ -102,6 +103,12 @@ class App extends StatelessWidget {
                 settings: settings,
               );
 
+            case '/groups':
+              return MaterialPageRoute(
+                builder: (_) => const GroupsPage(),
+                settings: settings,
+              );
+
             case '/dashboard':
               // Dashboard precisa do usuário autenticado
               return MaterialPageRoute(
@@ -110,14 +117,22 @@ class App extends StatelessWidget {
                   final authState = context.read<AuthCubit>().state;
 
                   if (authState is AuthAuthenticated) {
-                    // Cria DashboardCubit com dados do usuário
+                    final groupId = authState.user.activeGroupId;
+
+                    // Se não tem grupo ativo, vai para GroupsPage
+                    if (groupId == null || groupId.isEmpty) {
+                      return const GroupsPage();
+                    }
+
+                    // Cria DashboardCubit com dados do usuário e grupo
                     return BlocProvider<DashboardCubit>(
                       create: (context) => DashboardCubit(
                         checkinRepository: checkinRepository,
                         userId: authState.user.id,
                         userName: authState.user.name,
+                        groupId: groupId,
                       ),
-                      child: const DashboardPage(),
+                      child: DashboardPage(groupId: groupId),
                     );
                   }
 
