@@ -323,6 +323,22 @@ class AuthService {
     }
   }
 
+  /// Remove o grupo ativo do usuário (volta ao perfil pessoal).
+  Future<UserModel> clearActiveGroup() async {
+    final user = _firebaseAuth.currentUser;
+    if (user == null) throw const AuthException('Usuário não autenticado');
+
+    try {
+      await _firestore.collection('users').doc(user.uid).update({
+        'activeGroupId': null,
+      });
+
+      return await _fetchUserDetails(user);
+    } catch (e) {
+      throw AuthException('Erro ao limpar grupo ativo: $e');
+    }
+  }
+
   // ============================================================
   // HELPERS
   // ============================================================

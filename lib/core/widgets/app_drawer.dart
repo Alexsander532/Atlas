@@ -5,6 +5,7 @@ import '../../features/auth/cubit/auth_state.dart';
 import '../../features/groups/services/group_service.dart';
 import '../../features/groups/models/group_model.dart';
 import '../../features/groups/pages/create_group_page.dart';
+import '../../features/groups/pages/join_group_page.dart';
 
 class AppDrawer extends StatefulWidget {
   const AppDrawer({super.key});
@@ -54,6 +55,9 @@ class _AppDrawerState extends State<AppDrawer> {
     }
 
     final user = authState.user;
+    final hasActiveGroup = user.activeGroupId != null &&
+        _userGroups.any((g) => g.id == user.activeGroupId);
+    final isProfileActive = !hasActiveGroup;
 
     return Drawer(
       backgroundColor: Colors.white,
@@ -64,36 +68,50 @@ class _AppDrawerState extends State<AppDrawer> {
             // Header: Pill with user info
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: colorScheme.primary,
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      backgroundColor: Colors.white,
-                      foregroundColor: colorScheme.primary,
-                      child: Text(
-                        user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        user.name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 16,
+              child: GestureDetector(
+                onTap: () {
+                  if (!isProfileActive) {
+                    context.read<AuthCubit>().clearActiveGroup();
+                    Navigator.pushReplacementNamed(context, '/dashboard');
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isProfileActive
+                        ? colorScheme.primary
+                        : colorScheme.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: isProfileActive
+                            ? Colors.white
+                            : colorScheme.primary.withValues(alpha: 0.15),
+                        foregroundColor: colorScheme.primary,
+                        child: Text(
+                          user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          user.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: isProfileActive
+                                ? Colors.white
+                                : Colors.black87,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -174,13 +192,18 @@ class _AppDrawerState extends State<AppDrawer> {
                           title: 'Juntar-se ao grupo',
                           onTap: () {
                             Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const JoinGroupPage(),
+                              ),
+                            ).then((_) => _loadGroups());
                           },
                         ),
                         const SizedBox(height: 8),
                         _buildDrawerItem(
                           icon: Icons.outlined_flag,
                           title: 'Desafios concluídos',
-                          backgroundColor: Colors.grey[200],
                           onTap: () {
                             Navigator.pop(context);
                           },

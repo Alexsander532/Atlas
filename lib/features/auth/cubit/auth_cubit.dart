@@ -266,6 +266,18 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
+  /// Remove o grupo ativo (volta ao perfil pessoal)
+  Future<void> clearActiveGroup() async {
+    if (state is AuthAuthenticated) {
+      try {
+        final updatedUser = await _authRepository.clearActiveGroup();
+        emit(AuthAuthenticated(updatedUser));
+      } catch (e) {
+        // Se falhar silenciosamente por agora
+      }
+    }
+  }
+
   // ============================================================
   // HELPERS PRIVADOS
   // ============================================================

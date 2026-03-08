@@ -13,9 +13,18 @@ service firebase.storage {
       allow read: if request.auth != null;
       
       // PERMITIR ESCRITA:
-      // 1. Usuário deve estar logado
-      // 2. O usuário deve ser o dono da pasta (userId na URL deve bater com o UID do usuário)
-      // 3. (Opcional) Podemos validar tamanho/tipo de arquivo aqui também no futuro
+      // O usuário deve ser o dono da pasta
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Regras para fotos de perfil
+    // Caminho: users/USER_ID/profile.jpg
+    match /users/{userId}/{allPaths=**} {
+
+      // PERMITIR LEITURA: Qualquer usuário logado pode ver fotos de perfil
+      allow read: if request.auth != null;
+
+      // PERMITIR ESCRITA: Apenas o próprio usuário pode atualizar sua foto
       allow write: if request.auth != null && request.auth.uid == userId;
     }
   }
