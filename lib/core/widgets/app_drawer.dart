@@ -108,24 +108,31 @@ class _AppDrawerState extends State<AppDrawer> {
                       children: [
                         // Meus Grupos (se houver)
                         if (_userGroups.isNotEmpty) ...[
-                          ..._userGroups.map(
-                            (group) => _buildDrawerItem(
+                          ..._userGroups.map((group) {
+                            final isActive = user.activeGroupId == group.id;
+                            return _buildDrawerItem(
                               leading: CircleAvatar(
                                 radius: 14,
-                                backgroundColor: theme.colorScheme.primary
-                                    .withValues(alpha: 0.1),
+                                backgroundColor: isActive
+                                    ? Colors.white
+                                    : theme.colorScheme.primary.withValues(
+                                        alpha: 0.1,
+                                      ),
                                 child: Text(
                                   group.name.isNotEmpty
                                       ? group.name[0].toUpperCase()
                                       : 'G',
                                   style: TextStyle(
-                                    color: theme.colorScheme.primary,
+                                    color: isActive
+                                        ? theme.colorScheme.primary
+                                        : theme.colorScheme.primary,
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
                               ),
                               title: group.name,
+                              isActive: isActive,
                               onTap: () {
                                 context.read<AuthCubit>().updateActiveGroup(
                                   group.id,
@@ -135,8 +142,8 @@ class _AppDrawerState extends State<AppDrawer> {
                                   '/dashboard',
                                 );
                               },
-                            ),
-                          ),
+                            );
+                          }),
                           const Divider(height: 16),
                         ],
 
@@ -208,7 +215,12 @@ class _AppDrawerState extends State<AppDrawer> {
     required String title,
     required VoidCallback onTap,
     Color? backgroundColor,
+    bool isActive = false,
   }) {
+    final theme = Theme.of(context);
+    final activeBgColor = theme.colorScheme.primary.withValues(alpha: 0.15);
+    final activeTextColor = theme.colorScheme.primary;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
       child: InkWell(
@@ -216,20 +228,27 @@ class _AppDrawerState extends State<AppDrawer> {
         borderRadius: BorderRadius.circular(24),
         child: Container(
           decoration: BoxDecoration(
-            color: backgroundColor ?? Colors.transparent,
+            color: isActive
+                ? activeBgColor
+                : (backgroundColor ?? Colors.transparent),
             borderRadius: BorderRadius.circular(24),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
             children: [
-              leading ?? Icon(icon, color: Colors.black87, size: 26),
+              leading ??
+                  Icon(
+                    icon,
+                    color: isActive ? activeTextColor : Colors.black87,
+                    size: 26,
+                  ),
               const SizedBox(width: 16),
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
-                  color: Colors.black87,
-                  fontWeight: FontWeight.w400,
+                  color: isActive ? activeTextColor : Colors.black87,
+                  fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
                 ),
               ),
             ],
