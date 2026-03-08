@@ -130,6 +130,11 @@ class AuthRepository {
     return await _authService.updateActiveGroup(groupId);
   }
 
+  /// Remove o grupo ativo (volta ao perfil pessoal).
+  Future<UserModel> clearActiveGroup() async {
+    return await _authService.clearActiveGroup();
+  }
+
   /// Verifica se há um usuário autenticado.
   bool get isAuthenticated => _authService.isAuthenticated;
 }
