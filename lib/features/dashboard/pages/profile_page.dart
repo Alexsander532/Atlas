@@ -307,9 +307,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
         final user = state.user;
 
-        // Mocks for ui
         final int activeDaysCount = _totalCheckins;
-        final String activeTime = "4h 30m";
 
         return Scaffold(
           backgroundColor: backgroundColor,
@@ -356,7 +354,6 @@ class _ProfilePageState extends State<ProfilePage> {
                     _buildStatsRow(
                       _totalCheckins,
                       activeDaysCount,
-                      activeTime,
                       theme,
                     ),
                   const SizedBox(height: 24),
@@ -464,7 +461,6 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _buildStatsRow(
     int checkins,
     int diasAtivos,
-    String tempoAtivo,
     ThemeData theme,
   ) {
     return Row(
@@ -472,7 +468,6 @@ class _ProfilePageState extends State<ProfilePage> {
       children: [
         _buildCompactStat(checkins.toString(), 'Check-ins', theme),
         _buildCompactStat(diasAtivos.toString(), 'Dias ativos', theme),
-        _buildCompactStat(tempoAtivo, 'Tempo ativo', theme),
       ],
     );
   }

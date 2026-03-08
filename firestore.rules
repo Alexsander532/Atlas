@@ -38,9 +38,18 @@ service cloud.firestore {
       // PERMITIR CRIAÇÃO: Qualquer usuário logado pode criar
       allow create: if isAuthenticated();
       
-      // PERMITIR ATUALIZAÇÃO: Apenas membros do grupo
-      allow update: if isAuthenticated() && 
-        request.auth.uid in resource.data.memberIds;
+      // PERMITIR ATUALIZAÇÃO:
+      allow update: if isAuthenticated() && (
+        // Membros existentes podem atualizar (ex: sair do grupo, alterações gerais)
+        request.auth.uid in resource.data.memberIds ||
+        // Ou: usuário não-membro está SE adicionando ao grupo (join via código de convite)
+        // — só pode alterar 'memberIds' e 'memberCount', nada mais
+        (
+          !(request.auth.uid in resource.data.memberIds) &&
+          request.auth.uid in request.resource.data.memberIds &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds', 'memberCount'])
+        )
+      );
       
       // PERMITIR DELEÇÃO: Apenas o criador do grupo
       allow delete: if isAuthenticated() && 
@@ -61,6 +70,18 @@ service cloud.firestore {
       // PERMITIR ATUALIZAÇÃO E DELEÇÃO:
       // Apenas o dono do check-in pode editar ou apagar
       allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+
+      // Regras para Comentários (subcoleção de check-ins)
+      match /comments/{commentId} {
+        // PERMITIR LEITURA: Qualquer usuário logado pode ler comentários
+        allow read: if isAuthenticated();
+        
+        // PERMITIR CRIAÇÃO: Usuário logado com seu próprio userId
+        allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+        
+        // PERMITIR ATUALIZAÇÃO/DELEÇÃO: Apenas o dono do comentário
+        allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      }
     }
 
     // Regras para Mensagens (messages)
