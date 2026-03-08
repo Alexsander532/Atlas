@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../models/checkin_model.dart';
 import '../../../core/widgets/image_viewer_page.dart';
 import '../pages/profile_page.dart';
+import '../pages/checkin_detail_page.dart';
 
 /// Item de check-in na timeline do grupo.
 ///
@@ -280,28 +281,54 @@ class CheckinTimelineItem extends StatelessWidget {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[50],
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.grey[200]!),
-                        ),
-                        child: Text(
-                          'Aa',
-                          style: TextStyle(color: Colors.grey[400]),
+                      child: GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => CheckinDetailPage(
+                                checkin: checkin,
+                                autoFocusComment: true,
+                              ),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[50],
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.grey[200]!),
+                          ),
+                          child: Text(
+                            'Aa',
+                            style: TextStyle(color: Colors.grey[400]),
+                          ),
                         ),
                       ),
                     ),
                     const SizedBox(width: 12),
-                    Text(
-                      'Enviar',
-                      style: TextStyle(
-                        color: Colors.grey[300],
-                        fontWeight: FontWeight.bold,
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => CheckinDetailPage(
+                              checkin: checkin,
+                              autoFocusComment: true,
+                            ),
+                          ),
+                        );
+                      },
+                      child: Text(
+                        'Enviar',
+                        style: TextStyle(
+                          color: Colors.grey[300],
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],

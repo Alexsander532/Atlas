@@ -1,14 +1,84 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../auth/cubit/auth_cubit.dart';
+import '../../auth/cubit/auth_state.dart';
 import '../models/checkin_model.dart';
+import '../models/comment_model.dart';
+import '../services/comment_service.dart';
 import '../../../core/widgets/image_viewer_page.dart';
 
 /// Página de detalhes do check-in.
-class CheckinDetailPage extends StatelessWidget {
+class CheckinDetailPage extends StatefulWidget {
   final CheckinModel checkin;
+  final bool autoFocusComment;
 
-  const CheckinDetailPage({super.key, required this.checkin});
+  const CheckinDetailPage({
+    super.key,
+    required this.checkin,
+    this.autoFocusComment = false,
+  });
+
+  @override
+  State<CheckinDetailPage> createState() => _CheckinDetailPageState();
+}
+
+class _CheckinDetailPageState extends State<CheckinDetailPage> {
+  final CommentService _commentService = CommentService();
+  final TextEditingController _commentController = TextEditingController();
+  final FocusNode _commentFocusNode = FocusNode();
+
+  bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.autoFocusComment) {
+      // Delay to ensure the widget is fully built before requesting focus
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) _commentFocusNode.requestFocus();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    _commentFocusNode.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submitComment() async {
+    final text = _commentController.text.trim();
+    if (text.isEmpty) return;
+
+    final authState = context.read<AuthCubit>().state;
+    if (authState is! AuthAuthenticated) return;
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      await _commentService.addComment(
+        checkinId: widget.checkin.id,
+        userId: authState.user.id,
+        userName: authState.user.name,
+        text: text,
+      );
+      _commentController.clear();
+      FocusScope.of(context).unfocus();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Erro ao enviar comentário')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -17,7 +87,7 @@ class CheckinDetailPage extends StatelessWidget {
     final backgroundColor = const Color(0xFFF7F9FA); // Light mode background
 
     // Formata a data incluindo a hora local original do check-in (createdAt)
-    final dateFormatted = _formatDateTime(checkin.createdAt);
+    final dateFormatted = _formatDateTime(widget.checkin.createdAt);
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -56,7 +126,7 @@ class CheckinDetailPage extends StatelessWidget {
                         children: [
                           // Título
                           Text(
-                            checkin.title,
+                            widget.checkin.title,
                             style: theme.textTheme.headlineSmall?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: Colors.black87,
@@ -72,8 +142,8 @@ class CheckinDetailPage extends StatelessWidget {
                                 backgroundColor:
                                     colorScheme.primary, // App Blue Theme
                                 child: Text(
-                                  checkin.userName.isNotEmpty
-                                      ? checkin.userName[0].toUpperCase()
+                                  widget.checkin.userName.isNotEmpty
+                                      ? widget.checkin.userName[0].toUpperCase()
                                       : '?',
                                   style: const TextStyle(
                                     color: Colors.white,
@@ -88,7 +158,7 @@ class CheckinDetailPage extends StatelessWidget {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      checkin.userName,
+                                      widget.checkin.userName,
                                       style: theme.textTheme.titleMedium
                                           ?.copyWith(
                                             fontWeight: FontWeight.bold,
@@ -120,10 +190,10 @@ class CheckinDetailPage extends StatelessWidget {
                           const SizedBox(height: 32),
 
                           // Descrição e Corpo
-                          if (checkin.description != null &&
-                              checkin.description!.isNotEmpty)
+                          if (widget.checkin.description != null &&
+                              widget.checkin.description!.isNotEmpty)
                             Text(
-                              checkin.description!,
+                              widget.checkin.description!,
                               style: const TextStyle(
                                 fontSize: 16,
                                 height: 1.5,
@@ -140,9 +210,144 @@ class CheckinDetailPage extends StatelessWidget {
                               ),
                             ),
 
+                          const SizedBox(height: 32),
+                          const Divider(),
+                          const SizedBox(height: 16),
+
+                          // Comentários
+                          Text(
+                            'Comentários',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
+                          StreamBuilder<List<CommentModel>>(
+                            stream: _commentService.getCommentsStream(
+                              widget.checkin.id,
+                            ),
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState ==
+                                  ConnectionState.waiting) {
+                                return const Center(
+                                  child: CircularProgressIndicator(),
+                                );
+                              }
+                              if (snapshot.hasError) {
+                                return const Text(
+                                  'Erro ao carregar comentários.',
+                                );
+                              }
+
+                              final comments = snapshot.data ?? [];
+
+                              if (comments.isEmpty) {
+                                return const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 24.0),
+                                  child: Center(
+                                    child: Text(
+                                      'Seja o primeiro a comentar!',
+                                      style: TextStyle(color: Colors.black45),
+                                    ),
+                                  ),
+                                );
+                              }
+
+                              return ListView.separated(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: comments.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 16),
+                                itemBuilder: (context, index) {
+                                  final comment = comments[index];
+                                  return Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 16,
+                                        backgroundColor: Colors.grey[300],
+                                        child: Text(
+                                          comment.userName.isNotEmpty
+                                              ? comment.userName[0]
+                                                    .toUpperCase()
+                                              : '?',
+                                          style: const TextStyle(
+                                            color: Colors.black87,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Container(
+                                          padding: const EdgeInsets.all(12),
+                                          decoration: BoxDecoration(
+                                            color: Colors.grey[100],
+                                            borderRadius:
+                                                const BorderRadius.only(
+                                                  topRight: Radius.circular(16),
+                                                  bottomLeft: Radius.circular(
+                                                    16,
+                                                  ),
+                                                  bottomRight: Radius.circular(
+                                                    16,
+                                                  ),
+                                                ),
+                                          ),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment
+                                                        .spaceBetween,
+                                                children: [
+                                                  Text(
+                                                    comment.userName,
+                                                    style: const TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      fontSize: 13,
+                                                    ),
+                                                  ),
+                                                  Text(
+                                                    DateFormat(
+                                                      'dd/MM HH:mm',
+                                                    ).format(comment.createdAt),
+                                                    style: const TextStyle(
+                                                      color: Colors.black45,
+                                                      fontSize: 10,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                comment.text,
+                                                style: const TextStyle(
+                                                  color: Colors.black87,
+                                                  fontSize: 14,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              );
+                            },
+                          ),
+
                           // Preenche espaço para manter scroll limpo
                           SizedBox(
-                            height: MediaQuery.of(context).size.height * 0.3,
+                            height: MediaQuery.of(context).size.height * 0.1,
                           ),
                         ],
                       ),
@@ -161,15 +366,15 @@ class CheckinDetailPage extends StatelessWidget {
   }
 
   Widget _buildImageHeader(BuildContext context, ColorScheme colorScheme) {
-    if (checkin.imageUrl != null) {
+    if (widget.checkin.imageUrl != null) {
       return GestureDetector(
         onTap: () => _openImageViewer(context),
         child: Hero(
-          tag: 'checkin_${checkin.id}',
+          tag: 'checkin_${widget.checkin.id}',
           child: Container(
             decoration: BoxDecoration(
               image: DecorationImage(
-                image: NetworkImage(checkin.imageUrl!),
+                image: NetworkImage(widget.checkin.imageUrl!),
                 fit: BoxFit.cover,
                 alignment: Alignment.topCenter,
               ),
@@ -240,8 +445,12 @@ class CheckinDetailPage extends StatelessWidget {
                   color: Colors.grey[100],
                   borderRadius: BorderRadius.circular(24),
                 ),
-                child: const TextField(
-                  decoration: InputDecoration(
+                child: TextField(
+                  controller: _commentController,
+                  focusNode: _commentFocusNode,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => _submitComment(),
+                  decoration: const InputDecoration(
                     hintText: 'Adicionar comentário...',
                     hintStyle: TextStyle(color: Colors.black45),
                     border: InputBorder.none,
@@ -261,9 +470,14 @@ class CheckinDetailPage extends StatelessWidget {
                 border: Border.all(color: Colors.black12),
               ),
               child: IconButton(
-                icon: const Icon(Icons.send, size: 20, color: Colors.black45),
-                onPressed:
-                    () {}, // Funcionalidade de comentar pronta pro backend
+                icon: _isSubmitting
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.send, size: 20, color: Colors.black45),
+                onPressed: _isSubmitting ? null : _submitComment,
               ),
             ),
           ],
@@ -273,14 +487,14 @@ class CheckinDetailPage extends StatelessWidget {
   }
 
   void _openImageViewer(BuildContext context) {
-    if (checkin.imageUrl == null) return;
+    if (widget.checkin.imageUrl == null) return;
 
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => ImageViewerPage(
-          imageUrl: checkin.imageUrl,
-          tag: 'checkin_${checkin.id}',
+          imageUrl: widget.checkin.imageUrl,
+          tag: 'checkin_${widget.checkin.id}',
         ),
       ),
     );
